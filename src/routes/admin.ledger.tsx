@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StatusBadge } from "@/components/StatusBadge";
 import { inr, formatDate, MONTHS } from "@/lib/format";
-import { Search, Download } from "lucide-react";
+import { generateReceiptPDF } from "@/lib/receipt";
+import { Search, Download, FileText } from "lucide-react";
 
 export const Route = createFileRoute("/admin/ledger")({
   component: Ledger,
@@ -133,6 +134,7 @@ function Ledger() {
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Date</th>
                   <th className="px-4 py-3">Mode</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody>
@@ -147,6 +149,26 @@ function Ledger() {
                     <td className="px-4 py-3"><StatusBadge status={r.status} /></td>
                     <td className="px-4 py-3">{formatDate(r.payment_date)}</td>
                     <td className="px-4 py-3">{r.payment_mode ?? "—"}</td>
+                    <td className="px-4 py-3 text-right">
+                      <Button variant="ghost" size="sm" onClick={() => generateReceiptPDF({
+                        receiptNo: r.id.slice(0, 8).toUpperCase(),
+                        unitNo: r.units?.unit_no ?? "",
+                        ownerName: r.units?.owner_name ?? null,
+                        type: r.units?.type ?? "",
+                        month: r.billing_cycles?.month ?? "—",
+                        year: r.billing_cycles?.year ?? "",
+                        amountMaintenance: 0,
+                        amountGarbage: 0,
+                        totalPaid: Number(r.total_paid),
+                        balance: Number(r.balance),
+                        paymentDate: r.payment_date,
+                        paymentMode: r.payment_mode,
+                        referenceNo: r.reference_no,
+                        status: r.status,
+                      })}>
+                        <FileText className="mr-1 h-4 w-4" />Receipt
+                      </Button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

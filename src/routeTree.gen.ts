@@ -9,38 +9,198 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ResidentRouteImport } from './routes/resident'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ResidentSubmitRouteImport } from './routes/resident.submit'
+import { Route as ResidentQueriesRouteImport } from './routes/resident.queries'
+import { Route as ResidentPaymentsRouteImport } from './routes/resident.payments'
+import { Route as ResidentHomeRouteImport } from './routes/resident.home'
+import { Route as AdminUnitsRouteImport } from './routes/admin.units'
+import { Route as AdminPaymentsRouteImport } from './routes/admin.payments'
+import { Route as AdminLedgerRouteImport } from './routes/admin.ledger'
+import { Route as AdminDashboardRouteImport } from './routes/admin.dashboard'
 
+const ResidentRoute = ResidentRouteImport.update({
+  id: '/resident',
+  path: '/resident',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ResidentSubmitRoute = ResidentSubmitRouteImport.update({
+  id: '/submit',
+  path: '/submit',
+  getParentRoute: () => ResidentRoute,
+} as any)
+const ResidentQueriesRoute = ResidentQueriesRouteImport.update({
+  id: '/queries',
+  path: '/queries',
+  getParentRoute: () => ResidentRoute,
+} as any)
+const ResidentPaymentsRoute = ResidentPaymentsRouteImport.update({
+  id: '/payments',
+  path: '/payments',
+  getParentRoute: () => ResidentRoute,
+} as any)
+const ResidentHomeRoute = ResidentHomeRouteImport.update({
+  id: '/home',
+  path: '/home',
+  getParentRoute: () => ResidentRoute,
+} as any)
+const AdminUnitsRoute = AdminUnitsRouteImport.update({
+  id: '/units',
+  path: '/units',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminPaymentsRoute = AdminPaymentsRouteImport.update({
+  id: '/payments',
+  path: '/payments',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminLedgerRoute = AdminLedgerRouteImport.update({
+  id: '/ledger',
+  path: '/ledger',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminDashboardRoute = AdminDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AdminRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
+  '/login': typeof LoginRoute
+  '/resident': typeof ResidentRouteWithChildren
+  '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/ledger': typeof AdminLedgerRoute
+  '/admin/payments': typeof AdminPaymentsRoute
+  '/admin/units': typeof AdminUnitsRoute
+  '/resident/home': typeof ResidentHomeRoute
+  '/resident/payments': typeof ResidentPaymentsRoute
+  '/resident/queries': typeof ResidentQueriesRoute
+  '/resident/submit': typeof ResidentSubmitRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
+  '/login': typeof LoginRoute
+  '/resident': typeof ResidentRouteWithChildren
+  '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/ledger': typeof AdminLedgerRoute
+  '/admin/payments': typeof AdminPaymentsRoute
+  '/admin/units': typeof AdminUnitsRoute
+  '/resident/home': typeof ResidentHomeRoute
+  '/resident/payments': typeof ResidentPaymentsRoute
+  '/resident/queries': typeof ResidentQueriesRoute
+  '/resident/submit': typeof ResidentSubmitRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
+  '/login': typeof LoginRoute
+  '/resident': typeof ResidentRouteWithChildren
+  '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/ledger': typeof AdminLedgerRoute
+  '/admin/payments': typeof AdminPaymentsRoute
+  '/admin/units': typeof AdminUnitsRoute
+  '/resident/home': typeof ResidentHomeRoute
+  '/resident/payments': typeof ResidentPaymentsRoute
+  '/resident/queries': typeof ResidentQueriesRoute
+  '/resident/submit': typeof ResidentSubmitRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/login'
+    | '/resident'
+    | '/admin/dashboard'
+    | '/admin/ledger'
+    | '/admin/payments'
+    | '/admin/units'
+    | '/resident/home'
+    | '/resident/payments'
+    | '/resident/queries'
+    | '/resident/submit'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/admin'
+    | '/login'
+    | '/resident'
+    | '/admin/dashboard'
+    | '/admin/ledger'
+    | '/admin/payments'
+    | '/admin/units'
+    | '/resident/home'
+    | '/resident/payments'
+    | '/resident/queries'
+    | '/resident/submit'
+  id:
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/login'
+    | '/resident'
+    | '/admin/dashboard'
+    | '/admin/ledger'
+    | '/admin/payments'
+    | '/admin/units'
+    | '/resident/home'
+    | '/resident/payments'
+    | '/resident/queries'
+    | '/resident/submit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRouteWithChildren
+  LoginRoute: typeof LoginRoute
+  ResidentRoute: typeof ResidentRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/resident': {
+      id: '/resident'
+      path: '/resident'
+      fullPath: '/resident'
+      preLoaderRoute: typeof ResidentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,22 +208,105 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/resident/submit': {
+      id: '/resident/submit'
+      path: '/submit'
+      fullPath: '/resident/submit'
+      preLoaderRoute: typeof ResidentSubmitRouteImport
+      parentRoute: typeof ResidentRoute
+    }
+    '/resident/queries': {
+      id: '/resident/queries'
+      path: '/queries'
+      fullPath: '/resident/queries'
+      preLoaderRoute: typeof ResidentQueriesRouteImport
+      parentRoute: typeof ResidentRoute
+    }
+    '/resident/payments': {
+      id: '/resident/payments'
+      path: '/payments'
+      fullPath: '/resident/payments'
+      preLoaderRoute: typeof ResidentPaymentsRouteImport
+      parentRoute: typeof ResidentRoute
+    }
+    '/resident/home': {
+      id: '/resident/home'
+      path: '/home'
+      fullPath: '/resident/home'
+      preLoaderRoute: typeof ResidentHomeRouteImport
+      parentRoute: typeof ResidentRoute
+    }
+    '/admin/units': {
+      id: '/admin/units'
+      path: '/units'
+      fullPath: '/admin/units'
+      preLoaderRoute: typeof AdminUnitsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/payments': {
+      id: '/admin/payments'
+      path: '/payments'
+      fullPath: '/admin/payments'
+      preLoaderRoute: typeof AdminPaymentsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/ledger': {
+      id: '/admin/ledger'
+      path: '/ledger'
+      fullPath: '/admin/ledger'
+      preLoaderRoute: typeof AdminLedgerRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/dashboard': {
+      id: '/admin/dashboard'
+      path: '/dashboard'
+      fullPath: '/admin/dashboard'
+      preLoaderRoute: typeof AdminDashboardRouteImport
+      parentRoute: typeof AdminRoute
+    }
   }
 }
 
+interface AdminRouteChildren {
+  AdminDashboardRoute: typeof AdminDashboardRoute
+  AdminLedgerRoute: typeof AdminLedgerRoute
+  AdminPaymentsRoute: typeof AdminPaymentsRoute
+  AdminUnitsRoute: typeof AdminUnitsRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminDashboardRoute: AdminDashboardRoute,
+  AdminLedgerRoute: AdminLedgerRoute,
+  AdminPaymentsRoute: AdminPaymentsRoute,
+  AdminUnitsRoute: AdminUnitsRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
+interface ResidentRouteChildren {
+  ResidentHomeRoute: typeof ResidentHomeRoute
+  ResidentPaymentsRoute: typeof ResidentPaymentsRoute
+  ResidentQueriesRoute: typeof ResidentQueriesRoute
+  ResidentSubmitRoute: typeof ResidentSubmitRoute
+}
+
+const ResidentRouteChildren: ResidentRouteChildren = {
+  ResidentHomeRoute: ResidentHomeRoute,
+  ResidentPaymentsRoute: ResidentPaymentsRoute,
+  ResidentQueriesRoute: ResidentQueriesRoute,
+  ResidentSubmitRoute: ResidentSubmitRoute,
+}
+
+const ResidentRouteWithChildren = ResidentRoute._addFileChildren(
+  ResidentRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRouteWithChildren,
+  LoginRoute: LoginRoute,
+  ResidentRoute: ResidentRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

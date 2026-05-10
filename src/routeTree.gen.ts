@@ -13,6 +13,10 @@ import { Route as ResidentRouteImport } from './routes/resident'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ResidentSubmitRouteImport } from './routes/resident.submit'
+import { Route as ResidentQueriesRouteImport } from './routes/resident.queries'
+import { Route as ResidentPaymentsRouteImport } from './routes/resident.payments'
+import { Route as ResidentHomeRouteImport } from './routes/resident.home'
 import { Route as AdminUnitsRouteImport } from './routes/admin.units'
 import { Route as AdminPaymentsRouteImport } from './routes/admin.payments'
 import { Route as AdminLedgerRouteImport } from './routes/admin.ledger'
@@ -37,6 +41,26 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const ResidentSubmitRoute = ResidentSubmitRouteImport.update({
+  id: '/submit',
+  path: '/submit',
+  getParentRoute: () => ResidentRoute,
+} as any)
+const ResidentQueriesRoute = ResidentQueriesRouteImport.update({
+  id: '/queries',
+  path: '/queries',
+  getParentRoute: () => ResidentRoute,
+} as any)
+const ResidentPaymentsRoute = ResidentPaymentsRouteImport.update({
+  id: '/payments',
+  path: '/payments',
+  getParentRoute: () => ResidentRoute,
+} as any)
+const ResidentHomeRoute = ResidentHomeRouteImport.update({
+  id: '/home',
+  path: '/home',
+  getParentRoute: () => ResidentRoute,
 } as any)
 const AdminUnitsRoute = AdminUnitsRouteImport.update({
   id: '/units',
@@ -63,32 +87,44 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/login': typeof LoginRoute
-  '/resident': typeof ResidentRoute
+  '/resident': typeof ResidentRouteWithChildren
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/ledger': typeof AdminLedgerRoute
   '/admin/payments': typeof AdminPaymentsRoute
   '/admin/units': typeof AdminUnitsRoute
+  '/resident/home': typeof ResidentHomeRoute
+  '/resident/payments': typeof ResidentPaymentsRoute
+  '/resident/queries': typeof ResidentQueriesRoute
+  '/resident/submit': typeof ResidentSubmitRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/login': typeof LoginRoute
-  '/resident': typeof ResidentRoute
+  '/resident': typeof ResidentRouteWithChildren
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/ledger': typeof AdminLedgerRoute
   '/admin/payments': typeof AdminPaymentsRoute
   '/admin/units': typeof AdminUnitsRoute
+  '/resident/home': typeof ResidentHomeRoute
+  '/resident/payments': typeof ResidentPaymentsRoute
+  '/resident/queries': typeof ResidentQueriesRoute
+  '/resident/submit': typeof ResidentSubmitRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/login': typeof LoginRoute
-  '/resident': typeof ResidentRoute
+  '/resident': typeof ResidentRouteWithChildren
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/ledger': typeof AdminLedgerRoute
   '/admin/payments': typeof AdminPaymentsRoute
   '/admin/units': typeof AdminUnitsRoute
+  '/resident/home': typeof ResidentHomeRoute
+  '/resident/payments': typeof ResidentPaymentsRoute
+  '/resident/queries': typeof ResidentQueriesRoute
+  '/resident/submit': typeof ResidentSubmitRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -101,6 +137,10 @@ export interface FileRouteTypes {
     | '/admin/ledger'
     | '/admin/payments'
     | '/admin/units'
+    | '/resident/home'
+    | '/resident/payments'
+    | '/resident/queries'
+    | '/resident/submit'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -111,6 +151,10 @@ export interface FileRouteTypes {
     | '/admin/ledger'
     | '/admin/payments'
     | '/admin/units'
+    | '/resident/home'
+    | '/resident/payments'
+    | '/resident/queries'
+    | '/resident/submit'
   id:
     | '__root__'
     | '/'
@@ -121,13 +165,17 @@ export interface FileRouteTypes {
     | '/admin/ledger'
     | '/admin/payments'
     | '/admin/units'
+    | '/resident/home'
+    | '/resident/payments'
+    | '/resident/queries'
+    | '/resident/submit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRouteWithChildren
   LoginRoute: typeof LoginRoute
-  ResidentRoute: typeof ResidentRoute
+  ResidentRoute: typeof ResidentRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -159,6 +207,34 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/resident/submit': {
+      id: '/resident/submit'
+      path: '/submit'
+      fullPath: '/resident/submit'
+      preLoaderRoute: typeof ResidentSubmitRouteImport
+      parentRoute: typeof ResidentRoute
+    }
+    '/resident/queries': {
+      id: '/resident/queries'
+      path: '/queries'
+      fullPath: '/resident/queries'
+      preLoaderRoute: typeof ResidentQueriesRouteImport
+      parentRoute: typeof ResidentRoute
+    }
+    '/resident/payments': {
+      id: '/resident/payments'
+      path: '/payments'
+      fullPath: '/resident/payments'
+      preLoaderRoute: typeof ResidentPaymentsRouteImport
+      parentRoute: typeof ResidentRoute
+    }
+    '/resident/home': {
+      id: '/resident/home'
+      path: '/home'
+      fullPath: '/resident/home'
+      preLoaderRoute: typeof ResidentHomeRouteImport
+      parentRoute: typeof ResidentRoute
     }
     '/admin/units': {
       id: '/admin/units'
@@ -207,11 +283,29 @@ const AdminRouteChildren: AdminRouteChildren = {
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
+interface ResidentRouteChildren {
+  ResidentHomeRoute: typeof ResidentHomeRoute
+  ResidentPaymentsRoute: typeof ResidentPaymentsRoute
+  ResidentQueriesRoute: typeof ResidentQueriesRoute
+  ResidentSubmitRoute: typeof ResidentSubmitRoute
+}
+
+const ResidentRouteChildren: ResidentRouteChildren = {
+  ResidentHomeRoute: ResidentHomeRoute,
+  ResidentPaymentsRoute: ResidentPaymentsRoute,
+  ResidentQueriesRoute: ResidentQueriesRoute,
+  ResidentSubmitRoute: ResidentSubmitRoute,
+}
+
+const ResidentRouteWithChildren = ResidentRoute._addFileChildren(
+  ResidentRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRouteWithChildren,
   LoginRoute: LoginRoute,
-  ResidentRoute: ResidentRoute,
+  ResidentRoute: ResidentRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

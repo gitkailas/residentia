@@ -10,8 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StatusBadge } from "@/components/StatusBadge";
 import { formatDate } from "@/lib/format";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Upload } from "lucide-react";
 import { toast } from "sonner";
+import Papa from "papaparse";
 
 export const Route = createFileRoute("/admin/units")({
   component: UnitsPage,
@@ -76,15 +77,18 @@ function UnitsPage() {
           <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Units & Tenants</h1>
           <p className="text-sm text-muted-foreground">{units.length} units · 14 floors</p>
         </div>
-        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditing(null); }}>
-          <DialogTrigger asChild>
-            <Button className="bg-primary hover:bg-primary/90"><Plus className="mr-1 h-4 w-4" />Add Unit</Button>
-          </DialogTrigger>
-          <UnitDialog
-            editing={editing}
-            onClose={() => { setOpen(false); setEditing(null); qc.invalidateQueries({ queryKey: ["units"] }); }}
-          />
-        </Dialog>
+        <div className="flex gap-2">
+          <ImportCsvButton onDone={() => qc.invalidateQueries({ queryKey: ["units"] })} />
+          <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditing(null); }}>
+            <DialogTrigger asChild>
+              <Button className="bg-primary hover:bg-primary/90"><Plus className="mr-1 h-4 w-4" />Add Unit</Button>
+            </DialogTrigger>
+            <UnitDialog
+              editing={editing}
+              onClose={() => { setOpen(false); setEditing(null); qc.invalidateQueries({ queryKey: ["units"] }); }}
+            />
+          </Dialog>
+        </div>
       </div>
 
       <Card className="p-4">

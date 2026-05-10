@@ -1,0 +1,1 @@
+ALTER TABLE public.units ADD CONSTRAINT units_unit_no_unique UNIQUE (unit_no);

@@ -271,3 +271,95 @@ function UnitDialog({ editing, onClose }: { editing: Unit | null; onClose: () =>
     </DialogContent>
   );
 }
+
+function ImportCsvButton({ onDone }: { onDone: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [rows, setRows] = useState<any[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [fileName, setFileName] = useState("");
+
+  function pick(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setFileName(f.name);
+    Papa.parse(f, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (res) => {
+        const parsed = (res.data as any[]).map((r) => ({
+          unit_no: String(r.unit_no ?? r.Unit ?? r.unit ?? "").trim(),
+          floor: Number(r.floor ?? r.Floor ?? 0),
+          type: String(r.type ?? r.Type ?? "2BHK").trim(),
+          status: String(r.status ?? r.Status ?? "sold").trim(),
+          owner_name: r.owner_name ?? r.Owner ?? r.owner ?? null,
+          registration_date: r.registration_date || null,
+          key_handover_date: r.key_handover_date || null,
+        })).filter((r) => r.unit_no && r.floor > 0);
+        setRows(parsed);
+        setOpen(true);
+      },
+      error: (err) => toast.error(err.message),
+    });
+    e.target.value = "";
+  }
+
+  async function importAll() {
+    if (!rows.length) return;
+    setBusy(true);
+    const { error } = await supabase.from("units").upsert(rows, { onConflict: "unit_no" });
+    setBusy(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`Imported ${rows.length} units`);
+    setOpen(false); setRows([]); setFileName("");
+    onDone();
+  }
+
+  return (
+    <>
+      <Label className="cursor-pointer">
+        <input type="file" accept=".csv" className="hidden" onChange={pick} />
+        <span className="inline-flex h-9 items-center rounded-md border bg-background px-3 text-sm font-medium hover:bg-muted">
+          <Upload className="mr-2 h-4 w-4" />Import CSV
+        </span>
+      </Label>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Import preview — {fileName}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Expected columns: <code>unit_no, floor, type, status, owner_name, registration_date, key_handover_date</code>.
+            Existing units (matched by unit_no) will be updated.
+          </p>
+          <div className="max-h-80 overflow-auto rounded border text-xs">
+            <table className="w-full">
+              <thead className="bg-muted/50"><tr>
+                <th className="p-2 text-left">Unit</th><th className="p-2">Floor</th><th className="p-2">Type</th>
+                <th className="p-2">Owner</th><th className="p-2">Reg.</th><th className="p-2">Handover</th>
+              </tr></thead>
+              <tbody>
+                {rows.slice(0, 50).map((r, i) => (
+                  <tr key={i} className="border-t">
+                    <td className="p-2 font-mono">{r.unit_no}</td>
+                    <td className="p-2 text-center">{r.floor}</td>
+                    <td className="p-2 text-center">{r.type}</td>
+                    <td className="p-2">{r.owner_name ?? "—"}</td>
+                    <td className="p-2">{r.registration_date ?? "—"}</td>
+                    <td className="p-2">{r.key_handover_date ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {rows.length > 50 && <p className="text-xs text-muted-foreground">…and {rows.length - 50} more rows</p>}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button onClick={importAll} disabled={busy} className="bg-primary hover:bg-primary/90">
+              {busy ? "Importing…" : `Import ${rows.length} units`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}

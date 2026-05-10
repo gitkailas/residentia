@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, Building2, Receipt, BookOpenCheck, LogOut, Menu, X,
+  CalendarPlus, BadgePercent, AlertTriangle, Megaphone, MessageCircle,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin")({
@@ -15,8 +16,13 @@ export const Route = createFileRoute("/admin")({
 const NAV = [
   { to: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/admin/units", label: "Units & Tenants", icon: Building2 },
+  { to: "/admin/billing", label: "Billing Generator", icon: CalendarPlus },
   { to: "/admin/payments", label: "Payment Entry", icon: Receipt },
   { to: "/admin/ledger", label: "Ledger", icon: BookOpenCheck },
+  { to: "/admin/waivers", label: "Waivers", icon: BadgePercent },
+  { to: "/admin/defaulters", label: "Defaulters", icon: AlertTriangle },
+  { to: "/admin/announcements", label: "Announcements", icon: Megaphone },
+  { to: "/admin/queries", label: "Queries", icon: MessageCircle },
 ];
 
 function AdminLayout() {

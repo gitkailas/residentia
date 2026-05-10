@@ -17,10 +17,15 @@ import { Route as ResidentSubmitRouteImport } from './routes/resident.submit'
 import { Route as ResidentQueriesRouteImport } from './routes/resident.queries'
 import { Route as ResidentPaymentsRouteImport } from './routes/resident.payments'
 import { Route as ResidentHomeRouteImport } from './routes/resident.home'
+import { Route as AdminWaiversRouteImport } from './routes/admin.waivers'
 import { Route as AdminUnitsRouteImport } from './routes/admin.units'
+import { Route as AdminQueriesRouteImport } from './routes/admin.queries'
 import { Route as AdminPaymentsRouteImport } from './routes/admin.payments'
 import { Route as AdminLedgerRouteImport } from './routes/admin.ledger'
+import { Route as AdminDefaultersRouteImport } from './routes/admin.defaulters'
 import { Route as AdminDashboardRouteImport } from './routes/admin.dashboard'
+import { Route as AdminBillingRouteImport } from './routes/admin.billing'
+import { Route as AdminAnnouncementsRouteImport } from './routes/admin.announcements'
 
 const ResidentRoute = ResidentRouteImport.update({
   id: '/resident',
@@ -62,9 +67,19 @@ const ResidentHomeRoute = ResidentHomeRouteImport.update({
   path: '/home',
   getParentRoute: () => ResidentRoute,
 } as any)
+const AdminWaiversRoute = AdminWaiversRouteImport.update({
+  id: '/waivers',
+  path: '/waivers',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminUnitsRoute = AdminUnitsRouteImport.update({
   id: '/units',
   path: '/units',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminQueriesRoute = AdminQueriesRouteImport.update({
+  id: '/queries',
+  path: '/queries',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminPaymentsRoute = AdminPaymentsRouteImport.update({
@@ -77,9 +92,24 @@ const AdminLedgerRoute = AdminLedgerRouteImport.update({
   path: '/ledger',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminDefaultersRoute = AdminDefaultersRouteImport.update({
+  id: '/defaulters',
+  path: '/defaulters',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminDashboardRoute = AdminDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminBillingRoute = AdminBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminAnnouncementsRoute = AdminAnnouncementsRouteImport.update({
+  id: '/announcements',
+  path: '/announcements',
   getParentRoute: () => AdminRoute,
 } as any)
 
@@ -88,10 +118,15 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteWithChildren
   '/login': typeof LoginRoute
   '/resident': typeof ResidentRouteWithChildren
+  '/admin/announcements': typeof AdminAnnouncementsRoute
+  '/admin/billing': typeof AdminBillingRoute
   '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/defaulters': typeof AdminDefaultersRoute
   '/admin/ledger': typeof AdminLedgerRoute
   '/admin/payments': typeof AdminPaymentsRoute
+  '/admin/queries': typeof AdminQueriesRoute
   '/admin/units': typeof AdminUnitsRoute
+  '/admin/waivers': typeof AdminWaiversRoute
   '/resident/home': typeof ResidentHomeRoute
   '/resident/payments': typeof ResidentPaymentsRoute
   '/resident/queries': typeof ResidentQueriesRoute
@@ -102,10 +137,15 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRouteWithChildren
   '/login': typeof LoginRoute
   '/resident': typeof ResidentRouteWithChildren
+  '/admin/announcements': typeof AdminAnnouncementsRoute
+  '/admin/billing': typeof AdminBillingRoute
   '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/defaulters': typeof AdminDefaultersRoute
   '/admin/ledger': typeof AdminLedgerRoute
   '/admin/payments': typeof AdminPaymentsRoute
+  '/admin/queries': typeof AdminQueriesRoute
   '/admin/units': typeof AdminUnitsRoute
+  '/admin/waivers': typeof AdminWaiversRoute
   '/resident/home': typeof ResidentHomeRoute
   '/resident/payments': typeof ResidentPaymentsRoute
   '/resident/queries': typeof ResidentQueriesRoute
@@ -117,10 +157,15 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteWithChildren
   '/login': typeof LoginRoute
   '/resident': typeof ResidentRouteWithChildren
+  '/admin/announcements': typeof AdminAnnouncementsRoute
+  '/admin/billing': typeof AdminBillingRoute
   '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/defaulters': typeof AdminDefaultersRoute
   '/admin/ledger': typeof AdminLedgerRoute
   '/admin/payments': typeof AdminPaymentsRoute
+  '/admin/queries': typeof AdminQueriesRoute
   '/admin/units': typeof AdminUnitsRoute
+  '/admin/waivers': typeof AdminWaiversRoute
   '/resident/home': typeof ResidentHomeRoute
   '/resident/payments': typeof ResidentPaymentsRoute
   '/resident/queries': typeof ResidentQueriesRoute
@@ -133,10 +178,15 @@ export interface FileRouteTypes {
     | '/admin'
     | '/login'
     | '/resident'
+    | '/admin/announcements'
+    | '/admin/billing'
     | '/admin/dashboard'
+    | '/admin/defaulters'
     | '/admin/ledger'
     | '/admin/payments'
+    | '/admin/queries'
     | '/admin/units'
+    | '/admin/waivers'
     | '/resident/home'
     | '/resident/payments'
     | '/resident/queries'
@@ -147,10 +197,15 @@ export interface FileRouteTypes {
     | '/admin'
     | '/login'
     | '/resident'
+    | '/admin/announcements'
+    | '/admin/billing'
     | '/admin/dashboard'
+    | '/admin/defaulters'
     | '/admin/ledger'
     | '/admin/payments'
+    | '/admin/queries'
     | '/admin/units'
+    | '/admin/waivers'
     | '/resident/home'
     | '/resident/payments'
     | '/resident/queries'
@@ -161,10 +216,15 @@ export interface FileRouteTypes {
     | '/admin'
     | '/login'
     | '/resident'
+    | '/admin/announcements'
+    | '/admin/billing'
     | '/admin/dashboard'
+    | '/admin/defaulters'
     | '/admin/ledger'
     | '/admin/payments'
+    | '/admin/queries'
     | '/admin/units'
+    | '/admin/waivers'
     | '/resident/home'
     | '/resident/payments'
     | '/resident/queries'
@@ -236,11 +296,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ResidentHomeRouteImport
       parentRoute: typeof ResidentRoute
     }
+    '/admin/waivers': {
+      id: '/admin/waivers'
+      path: '/waivers'
+      fullPath: '/admin/waivers'
+      preLoaderRoute: typeof AdminWaiversRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/units': {
       id: '/admin/units'
       path: '/units'
       fullPath: '/admin/units'
       preLoaderRoute: typeof AdminUnitsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/queries': {
+      id: '/admin/queries'
+      path: '/queries'
+      fullPath: '/admin/queries'
+      preLoaderRoute: typeof AdminQueriesRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/payments': {
@@ -257,6 +331,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminLedgerRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/defaulters': {
+      id: '/admin/defaulters'
+      path: '/defaulters'
+      fullPath: '/admin/defaulters'
+      preLoaderRoute: typeof AdminDefaultersRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/dashboard': {
       id: '/admin/dashboard'
       path: '/dashboard'
@@ -264,21 +345,45 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminDashboardRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/billing': {
+      id: '/admin/billing'
+      path: '/billing'
+      fullPath: '/admin/billing'
+      preLoaderRoute: typeof AdminBillingRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/announcements': {
+      id: '/admin/announcements'
+      path: '/announcements'
+      fullPath: '/admin/announcements'
+      preLoaderRoute: typeof AdminAnnouncementsRouteImport
+      parentRoute: typeof AdminRoute
+    }
   }
 }
 
 interface AdminRouteChildren {
+  AdminAnnouncementsRoute: typeof AdminAnnouncementsRoute
+  AdminBillingRoute: typeof AdminBillingRoute
   AdminDashboardRoute: typeof AdminDashboardRoute
+  AdminDefaultersRoute: typeof AdminDefaultersRoute
   AdminLedgerRoute: typeof AdminLedgerRoute
   AdminPaymentsRoute: typeof AdminPaymentsRoute
+  AdminQueriesRoute: typeof AdminQueriesRoute
   AdminUnitsRoute: typeof AdminUnitsRoute
+  AdminWaiversRoute: typeof AdminWaiversRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminAnnouncementsRoute: AdminAnnouncementsRoute,
+  AdminBillingRoute: AdminBillingRoute,
   AdminDashboardRoute: AdminDashboardRoute,
+  AdminDefaultersRoute: AdminDefaultersRoute,
   AdminLedgerRoute: AdminLedgerRoute,
   AdminPaymentsRoute: AdminPaymentsRoute,
+  AdminQueriesRoute: AdminQueriesRoute,
   AdminUnitsRoute: AdminUnitsRoute,
+  AdminWaiversRoute: AdminWaiversRoute,
 }
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)

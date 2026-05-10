@@ -11,6 +11,11 @@ const map: Record<string, string> = {
   "PENDING VERIFICATION": "bg-muted text-foreground",
   Active: "bg-status-paid text-white",
   "Waiver Period": "bg-status-waiver text-white",
+  Open: "bg-status-partial text-white",
+  Resolved: "bg-status-paid text-white",
+  "Pending Approval": "bg-status-partial text-white",
+  Approved: "bg-status-paid text-white",
+  Rejected: "bg-status-unpaid text-white",
 };
 
 export function StatusBadge({ status, className }: { status: Status | string; className?: string }) {

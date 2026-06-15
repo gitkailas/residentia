@@ -59,6 +59,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "Residentia — RWA Malabar Red Orchids" },
       { name: "description", content: "RWA Malabar Red Orchids — Resident Payment Portal" },
       { name: "theme-color", content: "#1E3A5F" },
+      { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "default" },
       { name: "apple-mobile-web-app-title", content: "Residentia" },

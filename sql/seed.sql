@@ -24,22 +24,22 @@ VALUES
 ON CONFLICT DO NOTHING;
 
 -- Insert sample billing cycles for current month
-INSERT INTO public.billing_cycles (unit_id, month, year, total_due, is_waiver_period)
-SELECT id, 'June', 2026, 5000.00, FALSE FROM public.units WHERE unit_no IN ('A101', 'A102', 'A201', 'A301', 'B101', 'B102')
+INSERT INTO public.billing_cycles (unit_id, month, year, maintenance_due, garbage_due, total_due, is_waiver_period)
+SELECT id, 'June', 2026, 4000.00, 1000.00, 5000.00, FALSE FROM public.units WHERE unit_no IN ('A101', 'A102', 'A201', 'A301', 'B101', 'B102')
 ON CONFLICT DO NOTHING;
 
 -- Insert sample payments
-INSERT INTO public.payments (unit_id, total_paid, balance, status, payment_mode, payment_date)
-SELECT id, 2500.00, 2500.00, 'partial', 'bank_transfer', NOW() - INTERVAL '7 days' FROM public.units WHERE unit_no IN ('A101', 'A102')
+INSERT INTO public.payments (unit_id, amount_maintenance, amount_garbage, total_paid, balance, status, payment_mode, payment_date)
+SELECT id, 2000.00, 500.00, 2500.00, 2500.00, 'PARTIAL', 'UPI', CURRENT_DATE - INTERVAL '7 days' FROM public.units WHERE unit_no IN ('A101', 'A102')
 ON CONFLICT DO NOTHING;
 
 -- Insert sample queries
-INSERT INTO public.queries (unit_id, subject, message, status)
-SELECT id, 'Maintenance Issue', 'There is a water leak in the apartment', 'open' FROM public.units WHERE unit_no = 'A101'
+INSERT INTO public.queries (unit_id, subject, description, status)
+SELECT id, 'Maintenance Issue', 'There is a water leak in the apartment', 'Open' FROM public.units WHERE unit_no = 'A101'
 ON CONFLICT DO NOTHING;
 
-INSERT INTO public.queries (unit_id, subject, message, status)
-SELECT id, 'Billing Inquiry', 'I would like to know the billing details', 'open' FROM public.units WHERE unit_no = 'A102'
+INSERT INTO public.queries (unit_id, subject, description, status)
+SELECT id, 'Billing Inquiry', 'I would like to know the billing details', 'Open' FROM public.units WHERE unit_no = 'A102'
 ON CONFLICT DO NOTHING;
 
 -- Insert sample announcements
@@ -51,6 +51,6 @@ VALUES
 ON CONFLICT DO NOTHING;
 
 -- Insert sample waivers
-INSERT INTO public.waivers (unit_id, waiver_start_date, waiver_end_date, reason, status)
-SELECT id, '2026-06-01'::DATE, '2026-06-30'::DATE, 'Medical emergency', 'active' FROM public.units WHERE unit_no = 'A301'
+INSERT INTO public.waivers (unit_id, waiver_type, original_amount, waiver_amount, final_amount, reason, status)
+SELECT id, 'Manual', 5000.00, 2500.00, 2500.00, 'Medical emergency', 'Approved' FROM public.units WHERE unit_no = 'A301'
 ON CONFLICT DO NOTHING;

@@ -229,7 +229,7 @@ export async function handleDbRequest(request: Request) {
     if (!columns.length) {
       return new Response(JSON.stringify({ error: { message: "Nothing to update" } }), { status: 400 });
     }
-    const setClause = columns.map((column, index) => `t.${column} = $${index + 1}`).join(", ");
+    const setClause = columns.map((column, index) => `${column} = $${index + 1}`).join(", ");
     values.push(...columns.map((column) => (data as any)[column]));
     const { clause, values: whereValues } = buildWhere(filters);
     if (!clause) {
@@ -258,7 +258,7 @@ export async function handleDbRequest(request: Request) {
       .join(", ");
     values.push(...rows.flatMap((row) => columns.map((column) => (row as any)[column])));
     const updateColumns = columns.filter((column) => column !== conflict);
-    const updateClause = updateColumns.map((column) => `t.${column} = EXCLUDED.${column}`).join(", ");
+    const updateClause = updateColumns.map((column) => `${column} = EXCLUDED.${column}`).join(", ");
     sql = `INSERT INTO public.${table} (${columns.join(", ")}) VALUES ${insertPlaceholders} ON CONFLICT (${conflict}) DO UPDATE SET ${updateClause} RETURNING *`;
   } else {
     return new Response(JSON.stringify({ error: { message: `Unsupported operation '${op}'` } }), { status: 400 });
@@ -281,6 +281,15 @@ export async function handleDbRequest(request: Request) {
         return new Response(JSON.stringify({ data: rows.length > 0 ? rows[0] : null }), { status: 200 });
       }
       return new Response(JSON.stringify({ data: rows }), { status: 200 });
+    }
+    if (single) {
+      if (rows.length !== 1) {
+        return new Response(JSON.stringify({ error: { message: "Expected a single row" } }), { status: 400 });
+      }
+      return new Response(JSON.stringify({ data: rows[0] }), { status: 200 });
+    }
+    if (maybeSingle) {
+      return new Response(JSON.stringify({ data: rows.length > 0 ? rows[0] : null }), { status: 200 });
     }
     return new Response(JSON.stringify({ data: rows }), { status: 200 });
   } catch (error: unknown) {

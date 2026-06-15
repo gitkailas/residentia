@@ -32,15 +32,6 @@ interface Unit {
   billing_enabled: boolean;
 }
 
-function computePreview(reg?: string, han?: string) {
-  const dates = [reg, han].filter(Boolean) as string[];
-  if (!dates.length) return null;
-  const start = new Date(Math.min(...dates.map((d) => new Date(d).getTime())));
-  const end = new Date(start);
-  end.setMonth(end.getMonth() + 6);
-  return { start, end };
-}
-
 function UnitsPage() {
   const qc = useQueryClient();
   const { data: units = [], isLoading } = useQuery({
@@ -179,8 +170,6 @@ function UnitDialog({ editing, onClose }: { editing: Unit | null; onClose: () =>
   });
   const [busy, setBusy] = useState(false);
 
-  const preview = computePreview(form.registration_date || undefined, form.key_handover_date || undefined);
-
   async function save() {
     setBusy(true);
     const payload = {
@@ -250,17 +239,6 @@ function UnitDialog({ editing, onClose }: { editing: Unit | null; onClose: () =>
           <Input type="date" value={form.key_handover_date} onChange={(e) => setForm({ ...form, key_handover_date: e.target.value })} />
         </div>
       </div>
-
-      {preview && (
-        <div className="rounded-lg border border-status-waiver/30 bg-status-waiver/10 p-3 text-sm">
-          <div className="font-medium text-status-waiver">Auto waiver preview</div>
-          <div className="mt-1 text-foreground/80">
-            Waiver: <strong>{formatDate(preview.start)}</strong> → <strong>{formatDate(preview.end)}</strong>
-            <br />
-            Billing starts from <strong>{preview.end.toLocaleString("en-IN", { month: "long", year: "numeric" })}</strong>
-          </div>
-        </div>
-      )}
 
       <DialogFooter>
         <Button variant="outline" onClick={onClose}>Cancel</Button>

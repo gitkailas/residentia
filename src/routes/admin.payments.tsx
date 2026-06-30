@@ -42,7 +42,7 @@ function PaymentEntry() {
 
   const unit = useMemo(() => units.find((u: any) => u.id === unitId), [units, unitId]);
   const inWaiver = unit && !unit.billing_enabled;
-  const totalDue = unit ? RATES[unit.type as keyof typeof RATES].maintenance + RATES[unit.type as keyof typeof RATES].garbage : 0;
+  const totalDue = unit ? (RATES[unit.type as keyof typeof RATES]?.maintenance ?? 0) + (RATES[unit.type as keyof typeof RATES]?.garbage ?? 0) : 0;
   const totalPaid = Number(maint) + Number(garbage);
   const balance = Math.max(totalDue - totalPaid, 0);
   const status =
@@ -64,7 +64,7 @@ function PaymentEntry() {
     if (existing) {
       cycleId = existing.id;
     } else {
-      const r = RATES[unit.type as keyof typeof RATES];
+      const r = RATES[unit.type as keyof typeof RATES] ?? { maintenance: 0, garbage: 0 };
       const { data: created, error } = await supabase
         .from("billing_cycles")
         .insert({

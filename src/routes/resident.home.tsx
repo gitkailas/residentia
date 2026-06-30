@@ -64,7 +64,7 @@ function ResidentHome() {
   }
 
   const inWaiver = unit.status === "sold" && !unit.billing_enabled;
-  const rate = RATES[unit.type as keyof typeof RATES];
+  const rate = RATES[unit.type as keyof typeof RATES] ?? { maintenance: 0, garbage: 0 };
   const monthCycle = cycle ?? { maintenance_due: rate.maintenance, garbage_due: rate.garbage, total_due: rate.maintenance + rate.garbage };
   const monthPayment = payments.find((p) => p.billing_cycle_id === cycle?.id);
   const status = monthPayment?.status ?? (inWaiver ? "WAIVER PERIOD" : "UNPAID");

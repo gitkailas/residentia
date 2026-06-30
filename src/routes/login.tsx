@@ -21,7 +21,7 @@ function LoginPage() {
   const [busy, setBusy] = useState(false);
 
   if (!loading && session) {
-    if (role === "admin") nav({ to: "/admin/dashboard" });
+    if (role === "master_admin" || role === "owner") nav({ to: "/admin/dashboard" });
     else nav({ to: "/resident/home" });
   }
 
@@ -65,8 +65,8 @@ function LoginPage() {
 
           <form onSubmit={onSubmit} className="mt-6 space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+              <Label htmlFor="email">Email or Phone</Label>
+              <Input id="email" type="text" inputMode="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email or phone number" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>

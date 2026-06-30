@@ -180,6 +180,41 @@ export type Database = {
           },
         ]
       }
+      pricing: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          monthly_rent: number
+          unit_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          monthly_rent?: number
+          unit_type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          monthly_rent?: number
+          unit_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pricing_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       queries: {
         Row: {
           admin_reply: string | null
@@ -264,6 +299,7 @@ export type Database = {
           id: string
           key_handover_date: string | null
           owner_name: string | null
+          owner_user_id: string | null
           registration_date: string | null
           status: string
           type: string
@@ -279,6 +315,7 @@ export type Database = {
           id?: string
           key_handover_date?: string | null
           owner_name?: string | null
+          owner_user_id?: string | null
           registration_date?: string | null
           status?: string
           type: string
@@ -294,6 +331,7 @@ export type Database = {
           id?: string
           key_handover_date?: string | null
           owner_name?: string | null
+          owner_user_id?: string | null
           registration_date?: string | null
           status?: string
           type?: string
@@ -399,7 +437,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "resident"
+      app_role: "master_admin" | "owner" | "resident"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -527,7 +565,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "resident"],
+      app_role: ["master_admin", "owner", "resident"],
     },
   },
 } as const

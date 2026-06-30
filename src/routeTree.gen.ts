@@ -15,11 +15,14 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ResidentSubmitRouteImport } from './routes/resident.submit'
 import { Route as ResidentQueriesRouteImport } from './routes/resident.queries'
+import { Route as ResidentProfileRouteImport } from './routes/resident.profile'
 import { Route as ResidentPaymentsRouteImport } from './routes/resident.payments'
 import { Route as ResidentHomeRouteImport } from './routes/resident.home'
 import { Route as AdminWaiversRouteImport } from './routes/admin.waivers'
+import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminUnitsRouteImport } from './routes/admin.units'
 import { Route as AdminQueriesRouteImport } from './routes/admin.queries'
+import { Route as AdminPricingRouteImport } from './routes/admin.pricing'
 import { Route as AdminPaymentsRouteImport } from './routes/admin.payments'
 import { Route as AdminLedgerRouteImport } from './routes/admin.ledger'
 import { Route as AdminDefaultersRouteImport } from './routes/admin.defaulters'
@@ -57,6 +60,11 @@ const ResidentQueriesRoute = ResidentQueriesRouteImport.update({
   path: '/queries',
   getParentRoute: () => ResidentRoute,
 } as any)
+const ResidentProfileRoute = ResidentProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => ResidentRoute,
+} as any)
 const ResidentPaymentsRoute = ResidentPaymentsRouteImport.update({
   id: '/payments',
   path: '/payments',
@@ -72,6 +80,11 @@ const AdminWaiversRoute = AdminWaiversRouteImport.update({
   path: '/waivers',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminUnitsRoute = AdminUnitsRouteImport.update({
   id: '/units',
   path: '/units',
@@ -80,6 +93,11 @@ const AdminUnitsRoute = AdminUnitsRouteImport.update({
 const AdminQueriesRoute = AdminQueriesRouteImport.update({
   id: '/queries',
   path: '/queries',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminPricingRoute = AdminPricingRouteImport.update({
+  id: '/pricing',
+  path: '/pricing',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminPaymentsRoute = AdminPaymentsRouteImport.update({
@@ -124,11 +142,14 @@ export interface FileRoutesByFullPath {
   '/admin/defaulters': typeof AdminDefaultersRoute
   '/admin/ledger': typeof AdminLedgerRoute
   '/admin/payments': typeof AdminPaymentsRoute
+  '/admin/pricing': typeof AdminPricingRoute
   '/admin/queries': typeof AdminQueriesRoute
   '/admin/units': typeof AdminUnitsRoute
+  '/admin/users': typeof AdminUsersRoute
   '/admin/waivers': typeof AdminWaiversRoute
   '/resident/home': typeof ResidentHomeRoute
   '/resident/payments': typeof ResidentPaymentsRoute
+  '/resident/profile': typeof ResidentProfileRoute
   '/resident/queries': typeof ResidentQueriesRoute
   '/resident/submit': typeof ResidentSubmitRoute
 }
@@ -143,11 +164,14 @@ export interface FileRoutesByTo {
   '/admin/defaulters': typeof AdminDefaultersRoute
   '/admin/ledger': typeof AdminLedgerRoute
   '/admin/payments': typeof AdminPaymentsRoute
+  '/admin/pricing': typeof AdminPricingRoute
   '/admin/queries': typeof AdminQueriesRoute
   '/admin/units': typeof AdminUnitsRoute
+  '/admin/users': typeof AdminUsersRoute
   '/admin/waivers': typeof AdminWaiversRoute
   '/resident/home': typeof ResidentHomeRoute
   '/resident/payments': typeof ResidentPaymentsRoute
+  '/resident/profile': typeof ResidentProfileRoute
   '/resident/queries': typeof ResidentQueriesRoute
   '/resident/submit': typeof ResidentSubmitRoute
 }
@@ -163,11 +187,14 @@ export interface FileRoutesById {
   '/admin/defaulters': typeof AdminDefaultersRoute
   '/admin/ledger': typeof AdminLedgerRoute
   '/admin/payments': typeof AdminPaymentsRoute
+  '/admin/pricing': typeof AdminPricingRoute
   '/admin/queries': typeof AdminQueriesRoute
   '/admin/units': typeof AdminUnitsRoute
+  '/admin/users': typeof AdminUsersRoute
   '/admin/waivers': typeof AdminWaiversRoute
   '/resident/home': typeof ResidentHomeRoute
   '/resident/payments': typeof ResidentPaymentsRoute
+  '/resident/profile': typeof ResidentProfileRoute
   '/resident/queries': typeof ResidentQueriesRoute
   '/resident/submit': typeof ResidentSubmitRoute
 }
@@ -184,11 +211,14 @@ export interface FileRouteTypes {
     | '/admin/defaulters'
     | '/admin/ledger'
     | '/admin/payments'
+    | '/admin/pricing'
     | '/admin/queries'
     | '/admin/units'
+    | '/admin/users'
     | '/admin/waivers'
     | '/resident/home'
     | '/resident/payments'
+    | '/resident/profile'
     | '/resident/queries'
     | '/resident/submit'
   fileRoutesByTo: FileRoutesByTo
@@ -203,11 +233,14 @@ export interface FileRouteTypes {
     | '/admin/defaulters'
     | '/admin/ledger'
     | '/admin/payments'
+    | '/admin/pricing'
     | '/admin/queries'
     | '/admin/units'
+    | '/admin/users'
     | '/admin/waivers'
     | '/resident/home'
     | '/resident/payments'
+    | '/resident/profile'
     | '/resident/queries'
     | '/resident/submit'
   id:
@@ -222,11 +255,14 @@ export interface FileRouteTypes {
     | '/admin/defaulters'
     | '/admin/ledger'
     | '/admin/payments'
+    | '/admin/pricing'
     | '/admin/queries'
     | '/admin/units'
+    | '/admin/users'
     | '/admin/waivers'
     | '/resident/home'
     | '/resident/payments'
+    | '/resident/profile'
     | '/resident/queries'
     | '/resident/submit'
   fileRoutesById: FileRoutesById
@@ -282,6 +318,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ResidentQueriesRouteImport
       parentRoute: typeof ResidentRoute
     }
+    '/resident/profile': {
+      id: '/resident/profile'
+      path: '/profile'
+      fullPath: '/resident/profile'
+      preLoaderRoute: typeof ResidentProfileRouteImport
+      parentRoute: typeof ResidentRoute
+    }
     '/resident/payments': {
       id: '/resident/payments'
       path: '/payments'
@@ -303,6 +346,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminWaiversRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/users': {
+      id: '/admin/users'
+      path: '/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/units': {
       id: '/admin/units'
       path: '/units'
@@ -315,6 +365,13 @@ declare module '@tanstack/react-router' {
       path: '/queries'
       fullPath: '/admin/queries'
       preLoaderRoute: typeof AdminQueriesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/pricing': {
+      id: '/admin/pricing'
+      path: '/pricing'
+      fullPath: '/admin/pricing'
+      preLoaderRoute: typeof AdminPricingRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/payments': {
@@ -369,8 +426,10 @@ interface AdminRouteChildren {
   AdminDefaultersRoute: typeof AdminDefaultersRoute
   AdminLedgerRoute: typeof AdminLedgerRoute
   AdminPaymentsRoute: typeof AdminPaymentsRoute
+  AdminPricingRoute: typeof AdminPricingRoute
   AdminQueriesRoute: typeof AdminQueriesRoute
   AdminUnitsRoute: typeof AdminUnitsRoute
+  AdminUsersRoute: typeof AdminUsersRoute
   AdminWaiversRoute: typeof AdminWaiversRoute
 }
 
@@ -381,8 +440,10 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminDefaultersRoute: AdminDefaultersRoute,
   AdminLedgerRoute: AdminLedgerRoute,
   AdminPaymentsRoute: AdminPaymentsRoute,
+  AdminPricingRoute: AdminPricingRoute,
   AdminQueriesRoute: AdminQueriesRoute,
   AdminUnitsRoute: AdminUnitsRoute,
+  AdminUsersRoute: AdminUsersRoute,
   AdminWaiversRoute: AdminWaiversRoute,
 }
 
@@ -391,6 +452,7 @@ const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 interface ResidentRouteChildren {
   ResidentHomeRoute: typeof ResidentHomeRoute
   ResidentPaymentsRoute: typeof ResidentPaymentsRoute
+  ResidentProfileRoute: typeof ResidentProfileRoute
   ResidentQueriesRoute: typeof ResidentQueriesRoute
   ResidentSubmitRoute: typeof ResidentSubmitRoute
 }
@@ -398,6 +460,7 @@ interface ResidentRouteChildren {
 const ResidentRouteChildren: ResidentRouteChildren = {
   ResidentHomeRoute: ResidentHomeRoute,
   ResidentPaymentsRoute: ResidentPaymentsRoute,
+  ResidentProfileRoute: ResidentProfileRoute,
   ResidentQueriesRoute: ResidentQueriesRoute,
   ResidentSubmitRoute: ResidentSubmitRoute,
 }

@@ -19,7 +19,7 @@ Residentia has been successfully migrated from Supabase to a pure PostgreSQL bac
 | Table | Purpose | Status |
 |-------|---------|--------|
 | `users` | User authentication with passwords and roles | ✅ Ready |
-| `user_roles` | Role-based access control (admin/resident) | ✅ Ready |
+| `user_roles` | Role-based access control (master_admin/owner/resident) | ✅ Ready |
 | `units` | Apartment unit information and details | ✅ Ready |
 | `billing_cycles` | Monthly billing periods | ✅ Ready |
 | `payments` | Payment records and transactions | ✅ Ready |
@@ -239,10 +239,10 @@ $env:PGPASSWORD = 'ResidentiaPass123!'
 
 ## Test Credentials
 
-### Admin User
-- **Email:** admin@residentia.local
-- **Password:** admin@123
-- **Role:** admin
+### Master Admin
+- **Email:** master@residentia.local
+- **Password:** master@123
+- **Role:** master_admin
 
 ### Resident User
 - **Email:** resident@residentia.local

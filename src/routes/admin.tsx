@@ -6,14 +6,14 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, Building2, Receipt, BookOpenCheck, LogOut, Menu, X,
-  CalendarPlus, BadgePercent, AlertTriangle, Megaphone, MessageCircle,
+  CalendarPlus, BadgePercent, AlertTriangle, Megaphone, MessageCircle, Users, IndianRupee,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin")({
   component: AdminLayout,
 });
 
-const NAV = [
+const BASE_NAV = [
   { to: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/admin/units", label: "Units & Tenants", icon: Building2 },
   { to: "/admin/billing", label: "Billing Generator", icon: CalendarPlus },
@@ -21,8 +21,13 @@ const NAV = [
   { to: "/admin/ledger", label: "Ledger", icon: BookOpenCheck },
   { to: "/admin/waivers", label: "Waivers", icon: BadgePercent },
   { to: "/admin/defaulters", label: "Defaulters", icon: AlertTriangle },
+  { to: "/admin/pricing", label: "Pricing", icon: IndianRupee },
   { to: "/admin/announcements", label: "Announcements", icon: Megaphone },
   { to: "/admin/queries", label: "Queries", icon: MessageCircle },
+];
+
+const MASTER_ONLY_NAV = [
+  { to: "/admin/users", label: "Manage Owners", icon: Users },
 ];
 
 function AdminLayout() {
@@ -30,16 +35,19 @@ function AdminLayout() {
   const nav = useNavigate();
   const loc = useLocation();
   const [open, setOpen] = useState(false);
+  const isMaster = role === "master_admin";
+
+  const NAV = isMaster ? [...BASE_NAV, ...MASTER_ONLY_NAV] : BASE_NAV;
 
   useEffect(() => { setOpen(false); }, [loc.pathname]);
 
   useEffect(() => {
     if (loading) return;
     if (!session) nav({ to: "/login" });
-    else if (role && role !== "admin") nav({ to: "/resident/home" });
+    else if (role && role !== "master_admin" && role !== "owner") nav({ to: "/resident/home" });
   }, [loading, session, role, nav]);
 
-  if (loading || !session || role !== "admin") {
+  if (loading || !session || (role !== "master_admin" && role !== "owner")) {
     return <div className="flex min-h-screen items-center justify-center"><Brand /></div>;
   }
 
@@ -57,7 +65,7 @@ function AdminLayout() {
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gold text-gold-foreground font-bold">R</div>
             <div className="leading-tight">
               <div className="text-sm font-bold">Residentia</div>
-              <div className="text-[10px] uppercase tracking-wider opacity-80">Admin</div>
+              <div className="text-[10px] uppercase tracking-wider opacity-80">{isMaster ? "Admin" : "Owner"}</div>
             </div>
           </div>
           <button className="md:hidden" onClick={() => setOpen(false)}><X className="h-5 w-5" /></button>

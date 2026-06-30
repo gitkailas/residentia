@@ -17,6 +17,6 @@ function Index() {
     );
   }
   if (!session) return <Navigate to="/login" />;
-  if (role === "admin") return <Navigate to="/admin/dashboard" />;
+  if (role === "master_admin" || role === "owner") return <Navigate to="/admin/dashboard" />;
   return <Navigate to="/resident/home" />;
 }

@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Brand } from "@/components/Brand";
 import { cn } from "@/lib/utils";
-import { Home, Receipt, Upload, MessageSquare, LogOut } from "lucide-react";
+import { Home, Receipt, Upload, MessageSquare, User, LogOut } from "lucide-react";
 
 export const Route = createFileRoute("/resident")({
   component: ResidentLayout,
@@ -14,6 +14,7 @@ const TABS = [
   { to: "/resident/payments", label: "Payments", icon: Receipt },
   { to: "/resident/submit", label: "Submit", icon: Upload },
   { to: "/resident/queries", label: "Queries", icon: MessageSquare },
+  { to: "/resident/profile", label: "Profile", icon: User },
 ];
 
 function ResidentLayout() {
@@ -24,7 +25,7 @@ function ResidentLayout() {
   useEffect(() => {
     if (loading) return;
     if (!session) nav({ to: "/login" });
-    else if (role === "admin") nav({ to: "/admin/dashboard" });
+    else if (role === "master_admin" || role === "owner") nav({ to: "/admin/dashboard" });
   }, [loading, session, role, nav]);
 
   if (loading || !session) {
@@ -58,7 +59,7 @@ function ResidentLayout() {
 
       {/* Bottom tab bar */}
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t bg-card shadow-[0_-4px_12px_rgb(0_0_0_/_0.04)]">
-        <div className="mx-auto grid max-w-3xl grid-cols-4">
+        <div className="mx-auto grid max-w-3xl grid-cols-5">
           {TABS.map((t) => {
             const active = loc.pathname.startsWith(t.to);
             const Icon = t.icon;

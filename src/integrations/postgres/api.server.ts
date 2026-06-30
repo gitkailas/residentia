@@ -1,4 +1,4 @@
-import { createJwt, getUserByEmail, verifyPassword } from "./client.server";
+import { createJwt, getUserByEmail, verifyPassword, hashPassword, pgPool, verifyJwt } from "./client.server";
 import { handleDbRequest } from "./db.server";
 
 export async function handleApiRequest(request: Request) {
@@ -7,6 +7,24 @@ export async function handleApiRequest(request: Request) {
   
   if (url.pathname === "/api/auth/login") {
     return handleAuthLogin(request);
+  }
+  if (url.pathname === "/api/auth/create-user") {
+    if (request.method !== "POST") {
+      return new Response(JSON.stringify({ error: { message: "Method not allowed" } }), { status: 405, headers: { "content-type": "application/json" } });
+    }
+    return handleCreateUser(request);
+  }
+  if (url.pathname === "/api/auth/list-users") {
+    if (request.method !== "POST") {
+      return new Response(JSON.stringify({ error: { message: "Method not allowed" } }), { status: 405, headers: { "content-type": "application/json" } });
+    }
+    return handleListUsers(request);
+  }
+  if (url.pathname === "/api/auth/create-tenant") {
+    if (request.method !== "POST") {
+      return new Response(JSON.stringify({ error: { message: "Method not allowed" } }), { status: 405, headers: { "content-type": "application/json" } });
+    }
+    return handleCreateTenant(request);
   }
   if (url.pathname === "/api/db") {
     if (request.method !== "POST") {
@@ -71,4 +89,188 @@ async function handleAuthLogin(request: Request) {
     status: 200,
     headers: { "content-type": "application/json" },
   });
+}
+
+function getTokenClaims(request: Request) {
+  const authHeader = request.headers.get("authorization");
+  if (!authHeader?.startsWith("Bearer ")) return null;
+  try {
+    return verifyJwt(authHeader.replace("Bearer ", ""));
+  } catch {
+    return null;
+  }
+}
+
+async function handleCreateUser(request: Request) {
+  const claims = getTokenClaims(request);
+  if (!claims || claims.role !== "master_admin") {
+    return new Response(JSON.stringify({ error: { message: "Forbidden" } }), { status: 403, headers: { "content-type": "application/json" } });
+  }
+
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== "object") {
+    return new Response(JSON.stringify({ error: { message: "Invalid request body" } }), { status: 400, headers: { "content-type": "application/json" } });
+  }
+
+  const { email, password, name, role = "owner" } = body as { email?: string; password?: string; name?: string; role?: string };
+  if (!email || !password) {
+    return new Response(JSON.stringify({ error: { message: "Email and password are required" } }), { status: 400, headers: { "content-type": "application/json" } });
+  }
+
+  const allowedRoles = ["owner", "resident"];
+  if (!allowedRoles.includes(role)) {
+    return new Response(JSON.stringify({ error: { message: `Role must be one of: ${allowedRoles.join(", ")}` } }), { status: 400, headers: { "content-type": "application/json" } });
+  }
+
+  const existing = await getUserByEmail(email);
+  if (existing) {
+    return new Response(JSON.stringify({ error: { message: "A user with this email already exists" } }), { status: 409, headers: { "content-type": "application/json" } });
+  }
+
+  const passwordHash = await hashPassword(password);
+  const client = await pgPool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const userResult = await client.query(
+      `INSERT INTO public.users (email, password_hash, role) VALUES ($1, $2, $3) RETURNING id, email, role`,
+      [email.toLowerCase(), passwordHash, role],
+    );
+    const user = userResult.rows[0];
+
+    await client.query(
+      `INSERT INTO public.user_roles (user_id, role) VALUES ($1, $2)`,
+      [user.id, role],
+    );
+
+    if (name) {
+      try {
+        await client.query(
+          `INSERT INTO public.profiles (id, full_name, email) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET full_name = $2`,
+          [user.id, name, user.email],
+        );
+      } catch {
+        // profiles table may not exist locally — skip silently
+      }
+    }
+
+    await client.query("COMMIT");
+
+    return new Response(JSON.stringify({ data: { id: user.id, email: user.email, role: user.role } }), {
+      status: 201,
+      headers: { "content-type": "application/json" },
+    });
+  } catch (error) {
+    try { await client.query("ROLLBACK"); } catch {}
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[CREATE-USER] Error:", msg);
+    return new Response(JSON.stringify({ error: { message: `Failed to create user: ${msg}` } }), { status: 500, headers: { "content-type": "application/json" } });
+  } finally {
+    try { client.release(); } catch {}
+  }
+}
+
+async function handleCreateTenant(request: Request) {
+  const claims = getTokenClaims(request);
+  if (!claims || (claims.role !== "master_admin" && claims.role !== "owner")) {
+    return new Response(JSON.stringify({ error: { message: "Forbidden" } }), { status: 403, headers: { "content-type": "application/json" } });
+  }
+
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== "object") {
+    return new Response(JSON.stringify({ error: { message: "Invalid request body" } }), { status: 400, headers: { "content-type": "application/json" } });
+  }
+
+  const { email, password, name, phone, unit_id } = body as { email?: string; password?: string; name?: string; phone?: string; unit_id?: string };
+  if (!email || !password) {
+    return new Response(JSON.stringify({ error: { message: "Email and password are required" } }), { status: 400, headers: { "content-type": "application/json" } });
+  }
+
+  const existing = await getUserByEmail(email);
+  if (existing) {
+    return new Response(JSON.stringify({ error: { message: "A user with this email already exists" } }), { status: 409, headers: { "content-type": "application/json" } });
+  }
+
+  const passwordHash = await hashPassword(password);
+  const client = await pgPool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const userResult = await client.query(
+      `INSERT INTO public.users (email, password_hash, role) VALUES ($1, $2, 'resident') RETURNING id, email, role`,
+      [email.toLowerCase(), passwordHash],
+    );
+    const user = userResult.rows[0];
+
+    await client.query(
+      `INSERT INTO public.user_roles (user_id, role) VALUES ($1, 'resident')`,
+      [user.id],
+    );
+
+    await client.query(
+      `INSERT INTO public.profiles (id, full_name, email, phone, unit_id) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO UPDATE SET full_name = $2, phone = $4, unit_id = $5`,
+      [user.id, name || null, user.email, phone || null, unit_id || null],
+    );
+
+    await client.query(
+      `UPDATE public.units SET owner_phone = $1 WHERE id = $2`,
+      [phone || null, unit_id || null],
+    );
+
+    await client.query("COMMIT");
+
+    return new Response(JSON.stringify({ data: { id: user.id, email: user.email } }), {
+      status: 201,
+      headers: { "content-type": "application/json" },
+    });
+  } catch (error) {
+    try { await client.query("ROLLBACK"); } catch {}
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[CREATE-TENANT] Error:", msg);
+    return new Response(JSON.stringify({ error: { message: `Failed to create tenant: ${msg}` } }), { status: 500, headers: { "content-type": "application/json" } });
+  } finally {
+    try { client.release(); } catch {}
+  }
+}
+
+async function handleListUsers(request: Request) {
+  const claims = getTokenClaims(request);
+  if (!claims || claims.role !== "master_admin") {
+    return new Response(JSON.stringify({ error: { message: "Forbidden" } }), { status: 403, headers: { "content-type": "application/json" } });
+  }
+
+  const body = await request.json().catch(() => ({}));
+  const { role: filterRole = "owner" } = body as { role?: string };
+
+  try {
+    // profiles table may not exist locally — check before joining
+    const hasProfiles = await pgPool.query(
+      `SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'profiles')`
+    );
+    const useProfiles = hasProfiles.rows[0]?.exists ?? false;
+
+    const sql = useProfiles
+      ? `SELECT u.id, u.email, u.role, u.created_at, p.full_name
+         FROM public.users u
+         LEFT JOIN public.profiles p ON p.id = u.id
+         WHERE u.id IN (SELECT user_id FROM public.user_roles WHERE role = $1)
+         ORDER BY u.created_at DESC`
+      : `SELECT u.id, u.email, u.role, u.created_at, NULL::text AS full_name
+         FROM public.users u
+         WHERE u.id IN (SELECT user_id FROM public.user_roles WHERE role = $1)
+         ORDER BY u.created_at DESC`;
+
+    const result = await pgPool.query(sql, [filterRole]);
+
+    return new Response(JSON.stringify({ data: result.rows }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[LIST-USERS] Error:", msg);
+    return new Response(JSON.stringify({ error: { message: `Failed to list users: ${msg}` } }), { status: 500, headers: { "content-type": "application/json" } });
+  }
 }

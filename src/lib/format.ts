@@ -16,7 +16,11 @@ export const MONTHS = [
   "July","August","September","October","November","December",
 ];
 
-export const RATES = {
+export const RATES: Record<string, { maintenance: number; garbage: number }> = {
+  "1BHK": { maintenance: 1200, garbage: 100 },
   "2BHK": { maintenance: 1550, garbage: 100 },
   "3BHK": { maintenance: 1900, garbage: 100 },
-} as const;
+  "4BHK": { maintenance: 2250, garbage: 100 },
+  "5BHK": { maintenance: 2600, garbage: 100 },
+  "6BHK": { maintenance: 2950, garbage: 100 },
+};

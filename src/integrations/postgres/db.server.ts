@@ -86,10 +86,10 @@ function buildSelectClause(table: string, selectInput: string) {
   return { selected, joins, nestedKeys };
 }
 
-function buildWhere(filters: any[]) {
+function buildWhere(filters: any[], startIndex = 1) {
   const clauses: string[] = [];
   const values: any[] = [];
-  let index = 1;
+  let index = startIndex;
 
   for (const filter of filters) {
     const { type, column, operator, value } = filter;
@@ -231,7 +231,7 @@ export async function handleDbRequest(request: Request) {
     }
     const setClause = columns.map((column, index) => `${column} = $${index + 1}`).join(", ");
     values.push(...columns.map((column) => (data as any)[column]));
-    const { clause, values: whereValues } = buildWhere(filters);
+    const { clause, values: whereValues } = buildWhere(filters, columns.length + 1);
     if (!clause) {
       return new Response(JSON.stringify({ error: { message: "Update requires a filter" } }), { status: 400 });
     }

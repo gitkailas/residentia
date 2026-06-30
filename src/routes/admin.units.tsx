@@ -25,11 +25,32 @@ interface Unit {
   type: string;
   status: string;
   owner_name: string | null;
+  owner_phone: string | null;
   registration_date: string | null;
   key_handover_date: string | null;
   waiver_start_date: string | null;
   waiver_end_date: string | null;
   billing_enabled: boolean;
+}
+
+function getToken() {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem("residentia_token");
+}
+
+async function apiFetch(path: string, body: unknown) {
+  const token = getToken();
+  const res = await fetch(path, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+  const json = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(json?.error?.message ?? res.statusText);
+  return json;
 }
 
 function UnitsPage() {
@@ -75,6 +96,7 @@ function UnitsPage() {
               <Button className="bg-primary hover:bg-primary/90"><Plus className="mr-1 h-4 w-4" />Add Unit</Button>
             </DialogTrigger>
             <UnitDialog
+              key={editing?.id ?? "new"}
               editing={editing}
               onClose={() => { setOpen(false); setEditing(null); qc.invalidateQueries({ queryKey: ["units"] }); }}
             />
@@ -101,8 +123,12 @@ function UnitsPage() {
             <SelectTrigger><SelectValue placeholder="Type" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All types</SelectItem>
+              <SelectItem value="1BHK">1BHK</SelectItem>
               <SelectItem value="2BHK">2BHK</SelectItem>
               <SelectItem value="3BHK">3BHK</SelectItem>
+              <SelectItem value="4BHK">4BHK</SelectItem>
+              <SelectItem value="5BHK">5BHK</SelectItem>
+              <SelectItem value="6BHK">6BHK</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -123,7 +149,7 @@ function UnitsPage() {
                   <th className="px-4 py-3">Unit</th>
                   <th className="px-4 py-3">Floor</th>
                   <th className="px-4 py-3">Type</th>
-                  <th className="px-4 py-3">Owner</th>
+                  <th className="px-4 py-3">Tenant Name</th>
                   <th className="px-4 py-3">Reg.</th>
                   <th className="px-4 py-3">Handover</th>
                   <th className="px-4 py-3">Waiver Ends</th>
@@ -165,6 +191,7 @@ function UnitDialog({ editing, onClose }: { editing: Unit | null; onClose: () =>
     type: editing?.type ?? "2BHK",
     status: editing?.status ?? "sold",
     owner_name: editing?.owner_name ?? "",
+    owner_phone: editing?.owner_phone ?? "",
     registration_date: editing?.registration_date ?? "",
     key_handover_date: editing?.key_handover_date ?? "",
   });
@@ -172,21 +199,51 @@ function UnitDialog({ editing, onClose }: { editing: Unit | null; onClose: () =>
 
   async function save() {
     setBusy(true);
-    const payload = {
+    const billing_enabled = form.status === "sold" && !!form.key_handover_date;
+    const payload: Record<string, unknown> = {
       unit_no: form.unit_no.trim(),
       floor: Number(form.floor),
       type: form.type,
       status: form.status,
       owner_name: form.owner_name || null,
+      owner_phone: form.owner_phone || null,
       registration_date: form.registration_date || null,
       key_handover_date: form.key_handover_date || null,
+      billing_enabled,
     };
-    const { error } = editing
-      ? await supabase.from("units").update(payload).eq("id", editing.id)
-      : await supabase.from("units").insert(payload);
+
+    if (editing) {
+      const { error } = await supabase.from("units").update(payload).eq("id", editing.id);
+      setBusy(false);
+      if (error) { toast.error(error.message); return; }
+      toast.success("Unit updated");
+      onClose();
+      return;
+    }
+
+    const { data: newUnits, error } = await supabase.from("units").insert(payload).select();
     setBusy(false);
     if (error) { toast.error(error.message); return; }
-    toast.success(editing ? "Unit updated" : "Unit created");
+
+    const unitId = (newUnits as Unit[])?.[0]?.id;
+    if (unitId && form.owner_phone) {
+      try {
+        await apiFetch("/api/auth/create-tenant", {
+          email: form.owner_phone.trim(),
+          password: form.owner_phone.trim(),
+          name: form.owner_name || null,
+          phone: form.owner_phone.trim(),
+          unit_id: unitId,
+        });
+        toast.success("Unit created and tenant login set up");
+      } catch (e) {
+        toast.error(`Unit created but tenant account failed: ${(e as Error).message}`);
+      }
+      onClose();
+      return;
+    }
+
+    toast.success("Unit created");
     onClose();
   }
 
@@ -210,8 +267,12 @@ function UnitDialog({ editing, onClose }: { editing: Unit | null; onClose: () =>
           <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
+              <SelectItem value="1BHK">1BHK</SelectItem>
               <SelectItem value="2BHK">2BHK</SelectItem>
               <SelectItem value="3BHK">3BHK</SelectItem>
+              <SelectItem value="4BHK">4BHK</SelectItem>
+              <SelectItem value="5BHK">5BHK</SelectItem>
+              <SelectItem value="6BHK">6BHK</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -227,8 +288,13 @@ function UnitDialog({ editing, onClose }: { editing: Unit | null; onClose: () =>
           </Select>
         </div>
         <div className="space-y-2 md:col-span-2">
-          <Label>Owner name</Label>
+          <Label>Tenant name</Label>
           <Input value={form.owner_name} onChange={(e) => setForm({ ...form, owner_name: e.target.value })} />
+        </div>
+        <div className="space-y-2 md:col-span-2">
+          <Label>Tenant mobile number</Label>
+          <Input value={form.owner_phone} onChange={(e) => setForm({ ...form, owner_phone: e.target.value })} placeholder="e.g. 9876543210" />
+          <p className="text-xs text-muted-foreground">Tenant will use this number as both username and password to log in.</p>
         </div>
         <div className="space-y-2">
           <Label>Registration date</Label>
@@ -313,7 +379,7 @@ function ImportCsvButton({ onDone }: { onDone: () => void }) {
             <table className="w-full">
               <thead className="bg-muted/50"><tr>
                 <th className="p-2 text-left">Unit</th><th className="p-2">Floor</th><th className="p-2">Type</th>
-                <th className="p-2">Owner</th><th className="p-2">Reg.</th><th className="p-2">Handover</th>
+                <th className="p-2">Tenant Name</th><th className="p-2">Reg.</th><th className="p-2">Handover</th>
               </tr></thead>
               <tbody>
                 {rows.slice(0, 50).map((r, i) => (

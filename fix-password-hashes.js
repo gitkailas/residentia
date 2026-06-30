@@ -7,19 +7,10 @@ const pool = new Pool({
 
 async function fixPasswords() {
   try {
-    const adminHash = await bcryptjs.hash('admin@123', 10);
     const residentHash = await bcryptjs.hash('resident@123', 10);
 
     console.log('Generated hashes:');
-    console.log('admin@123 ->', adminHash);
     console.log('resident@123 ->', residentHash);
-
-    // Update admin user
-    const adminResult = await pool.query(
-      'UPDATE public.users SET password_hash = $1 WHERE email = $2 RETURNING email, password_hash',
-      [adminHash, 'admin@residentia.local']
-    );
-    console.log('Updated admin:', adminResult.rows[0]);
 
     // Update resident user
     const residentResult = await pool.query(

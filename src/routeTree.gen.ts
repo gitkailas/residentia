@@ -22,7 +22,7 @@ import { Route as AdminWaiversRouteImport } from './routes/admin.waivers'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminUnitsRouteImport } from './routes/admin.units'
 import { Route as AdminQueriesRouteImport } from './routes/admin.queries'
-import { Route as AdminPricingRouteImport } from './routes/admin.pricing'
+import { Route as AdminPropertiesRouteImport } from './routes/admin.properties'
 import { Route as AdminPaymentsRouteImport } from './routes/admin.payments'
 import { Route as AdminLedgerRouteImport } from './routes/admin.ledger'
 import { Route as AdminDefaultersRouteImport } from './routes/admin.defaulters'
@@ -95,9 +95,9 @@ const AdminQueriesRoute = AdminQueriesRouteImport.update({
   path: '/queries',
   getParentRoute: () => AdminRoute,
 } as any)
-const AdminPricingRoute = AdminPricingRouteImport.update({
-  id: '/pricing',
-  path: '/pricing',
+const AdminPropertiesRoute = AdminPropertiesRouteImport.update({
+  id: '/properties',
+  path: '/properties',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminPaymentsRoute = AdminPaymentsRouteImport.update({
@@ -142,7 +142,7 @@ export interface FileRoutesByFullPath {
   '/admin/defaulters': typeof AdminDefaultersRoute
   '/admin/ledger': typeof AdminLedgerRoute
   '/admin/payments': typeof AdminPaymentsRoute
-  '/admin/pricing': typeof AdminPricingRoute
+  '/admin/properties': typeof AdminPropertiesRoute
   '/admin/queries': typeof AdminQueriesRoute
   '/admin/units': typeof AdminUnitsRoute
   '/admin/users': typeof AdminUsersRoute
@@ -164,7 +164,7 @@ export interface FileRoutesByTo {
   '/admin/defaulters': typeof AdminDefaultersRoute
   '/admin/ledger': typeof AdminLedgerRoute
   '/admin/payments': typeof AdminPaymentsRoute
-  '/admin/pricing': typeof AdminPricingRoute
+  '/admin/properties': typeof AdminPropertiesRoute
   '/admin/queries': typeof AdminQueriesRoute
   '/admin/units': typeof AdminUnitsRoute
   '/admin/users': typeof AdminUsersRoute
@@ -187,7 +187,7 @@ export interface FileRoutesById {
   '/admin/defaulters': typeof AdminDefaultersRoute
   '/admin/ledger': typeof AdminLedgerRoute
   '/admin/payments': typeof AdminPaymentsRoute
-  '/admin/pricing': typeof AdminPricingRoute
+  '/admin/properties': typeof AdminPropertiesRoute
   '/admin/queries': typeof AdminQueriesRoute
   '/admin/units': typeof AdminUnitsRoute
   '/admin/users': typeof AdminUsersRoute
@@ -211,7 +211,7 @@ export interface FileRouteTypes {
     | '/admin/defaulters'
     | '/admin/ledger'
     | '/admin/payments'
-    | '/admin/pricing'
+    | '/admin/properties'
     | '/admin/queries'
     | '/admin/units'
     | '/admin/users'
@@ -233,7 +233,7 @@ export interface FileRouteTypes {
     | '/admin/defaulters'
     | '/admin/ledger'
     | '/admin/payments'
-    | '/admin/pricing'
+    | '/admin/properties'
     | '/admin/queries'
     | '/admin/units'
     | '/admin/users'
@@ -255,7 +255,7 @@ export interface FileRouteTypes {
     | '/admin/defaulters'
     | '/admin/ledger'
     | '/admin/payments'
-    | '/admin/pricing'
+    | '/admin/properties'
     | '/admin/queries'
     | '/admin/units'
     | '/admin/users'
@@ -367,11 +367,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminQueriesRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/admin/pricing': {
-      id: '/admin/pricing'
-      path: '/pricing'
-      fullPath: '/admin/pricing'
-      preLoaderRoute: typeof AdminPricingRouteImport
+    '/admin/properties': {
+      id: '/admin/properties'
+      path: '/properties'
+      fullPath: '/admin/properties'
+      preLoaderRoute: typeof AdminPropertiesRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/payments': {
@@ -426,7 +426,7 @@ interface AdminRouteChildren {
   AdminDefaultersRoute: typeof AdminDefaultersRoute
   AdminLedgerRoute: typeof AdminLedgerRoute
   AdminPaymentsRoute: typeof AdminPaymentsRoute
-  AdminPricingRoute: typeof AdminPricingRoute
+  AdminPropertiesRoute: typeof AdminPropertiesRoute
   AdminQueriesRoute: typeof AdminQueriesRoute
   AdminUnitsRoute: typeof AdminUnitsRoute
   AdminUsersRoute: typeof AdminUsersRoute
@@ -440,7 +440,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminDefaultersRoute: AdminDefaultersRoute,
   AdminLedgerRoute: AdminLedgerRoute,
   AdminPaymentsRoute: AdminPaymentsRoute,
-  AdminPricingRoute: AdminPricingRoute,
+  AdminPropertiesRoute: AdminPropertiesRoute,
   AdminQueriesRoute: AdminQueriesRoute,
   AdminUnitsRoute: AdminUnitsRoute,
   AdminUsersRoute: AdminUsersRoute,

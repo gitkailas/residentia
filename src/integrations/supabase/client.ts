@@ -115,6 +115,11 @@ class PostgresQueryBuilder {
     return this;
   }
 
+  in(column: string, values: any[]) {
+    this.filters.push({ type: "in", column, value: values });
+    return this;
+  }
+
   order(column: string, options?: { ascending?: boolean }) {
     this.orderItems.push({ column, ascending: options?.ascending });
     return this;

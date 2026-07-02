@@ -42,21 +42,21 @@ function BillingGenerator() {
   });
 
   const summary = useMemo(() => {
-    const eligible = units.filter((u: any) => u.status === "sold");
-    const billable = eligible.filter((u: any) => u.billing_enabled);
-    const inWaiver = eligible.filter((u: any) => !u.billing_enabled);
+    const occupied = units.filter((u: any) => u.owner_name && u.status === "sold");
+    const billable = occupied.filter((u: any) => u.billing_enabled);
+    const inWaiver = occupied.filter((u: any) => !u.billing_enabled);
     const generated = existing.length;
     const totalExpected = billable.reduce((s: number, u: any) => {
       const r = RATES[u.type as keyof typeof RATES];
       return s + (r?.maintenance ?? 0) + (r?.garbage ?? 0);
     }, 0);
-    return { eligible: eligible.length, billable: billable.length, inWaiver: inWaiver.length, generated, totalExpected };
+    return { eligible: occupied.length, billable: billable.length, inWaiver: inWaiver.length, generated, totalExpected };
   }, [units, existing]);
 
   async function generate() {
     setBusy(true);
     const existingIds = new Set(existing.map((e: any) => e.unit_id));
-    const eligible = units.filter((u: any) => u.status === "sold" && !existingIds.has(u.id));
+    const eligible = units.filter((u: any) => u.owner_name && u.status === "sold" && !existingIds.has(u.id));
     if (eligible.length === 0) {
       toast.info("All eligible units already have a cycle for this period.");
       setBusy(false);
@@ -84,7 +84,7 @@ function BillingGenerator() {
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Monthly Billing Generator</h1>
-        <p className="text-sm text-muted-foreground">Create a billing cycle entry for every sold unit for the selected month.</p>
+        <p className="text-sm text-muted-foreground">Create a billing cycle entry for every occupied unit for the selected month.</p>
       </div>
 
       <Card className="p-6 space-y-5">
@@ -105,7 +105,7 @@ function BillingGenerator() {
         </div>
 
         <div className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/30 p-4 text-sm md:grid-cols-4">
-          <Stat label="Sold units" value={summary.eligible} />
+          <Stat label="Occupied units" value={summary.eligible} />
           <Stat label="Billable" value={summary.billable} hint="active billing" />
           <Stat label="In waiver" value={summary.inWaiver} hint="0 due" />
           <Stat label="Already generated" value={summary.generated} hint={`${month} ${year}`} />

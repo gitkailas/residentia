@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, Building2, Receipt, BookOpenCheck, LogOut, Menu, X,
-  CalendarPlus, BadgePercent, AlertTriangle, Megaphone, MessageCircle, Users, IndianRupee,
+  CalendarPlus, BadgePercent, AlertTriangle, Megaphone, MessageCircle, Users,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin")({
@@ -21,7 +21,7 @@ const BASE_NAV = [
   { to: "/admin/ledger", label: "Ledger", icon: BookOpenCheck },
   { to: "/admin/waivers", label: "Waivers", icon: BadgePercent },
   { to: "/admin/defaulters", label: "Defaulters", icon: AlertTriangle },
-  { to: "/admin/pricing", label: "Pricing", icon: IndianRupee },
+  { to: "/admin/properties", label: "Properties", icon: Building2 },
   { to: "/admin/announcements", label: "Announcements", icon: Megaphone },
   { to: "/admin/queries", label: "Queries", icon: MessageCircle },
 ];

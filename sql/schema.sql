@@ -48,6 +48,10 @@ CREATE TABLE IF NOT EXISTS public.units (
     key_handover_date DATE,
     waiver_start_date DATE,
     waiver_end_date DATE,
+    property_name VARCHAR(255),
+    description TEXT,
+    area_sqft INT,
+    monthly_rent DECIMAL(10,2) NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

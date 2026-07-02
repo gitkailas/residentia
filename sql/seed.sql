@@ -30,25 +30,25 @@ SELECT id, 'owner' FROM public.users WHERE email = 'madhusoodhanan@residentia.lo
 ON CONFLICT DO NOTHING;
 
 -- Insert sample units (owner_user_id left NULL — assign via Manage Owners)
-INSERT INTO public.units (unit_no, floor, type, owner_name, owner_email, owner_phone, status, billing_enabled)
+INSERT INTO public.units (unit_no, floor, type, owner_name, owner_email, owner_phone, status, billing_enabled, property_name, monthly_rent)
 VALUES
-  ('A101', 1, '3BHK', 'John Smith', 'john@example.com', '9876543210', 'sold', TRUE),
-  ('A102', 1, '2BHK', 'Jane Doe', 'jane@example.com', '9876543211', 'sold', TRUE),
-  ('A201', 2, '3BHK', 'Robert Johnson', 'robert@example.com', '9876543212', 'sold', TRUE),
-  ('A202', 2, '1BHK', 'Alice Brown', 'alice@example.com', '9876543213', 'vacant', FALSE),
-  ('A301', 3, '3BHK', 'Michael Davis', 'michael@example.com', '9876543214', 'sold', TRUE),
-  ('B101', 1, '2BHK', 'Sarah Wilson', 'sarah@example.com', '9876543215', 'sold', TRUE),
-  ('B102', 1, '1BHK', 'David Lee', 'david@example.com', '9876543216', 'sold', TRUE)
+  ('A101', 1, '3BHK', 'John Smith', 'john@example.com', '9876543210', 'sold', TRUE, NULL, 0),
+  ('A102', 1, '2BHK', 'Jane Doe', 'jane@example.com', '9876543211', 'sold', TRUE, NULL, 0),
+  ('A201', 2, '3BHK', 'Robert Johnson', 'robert@example.com', '9876543212', 'sold', TRUE, NULL, 0),
+  ('A202', 2, '1BHK', 'Alice Brown', 'alice@example.com', '9876543213', 'vacant', FALSE, NULL, 0),
+  ('A301', 3, '3BHK', 'Michael Davis', 'michael@example.com', '9876543214', 'sold', TRUE, NULL, 0),
+  ('B101', 1, '2BHK', 'Sarah Wilson', 'sarah@example.com', '9876543215', 'sold', TRUE, NULL, 0),
+  ('B102', 1, '1BHK', 'David Lee', 'david@example.com', '9876543216', 'sold', TRUE, NULL, 0)
 ON CONFLICT DO NOTHING;
 
 -- Insert units for madhusoodhanan owner (linked via owner_user_id)
-INSERT INTO public.units (unit_no, floor, type, owner_name, owner_email, owner_phone, owner_user_id, status, billing_enabled)
-SELECT 'C101', 3, '3BHK', 'Madhusoodhanan', 'madhusoodhanan@residentia.local', '9876543217', id, 'sold', TRUE
+INSERT INTO public.units (unit_no, floor, type, owner_name, owner_email, owner_phone, owner_user_id, status, billing_enabled, property_name, monthly_rent)
+SELECT 'C101', 3, '3BHK', 'Madhusoodhanan', 'madhusoodhanan@residentia.local', '9876543217', id, 'sold', TRUE, 'Lakeview 3BHK', 15000
 FROM public.users WHERE email = 'madhusoodhanan@residentia.local'
 ON CONFLICT DO NOTHING;
 
-INSERT INTO public.units (unit_no, floor, type, owner_name, owner_email, owner_phone, owner_user_id, status, billing_enabled)
-SELECT 'C102', 3, '2BHK', 'Madhusoodhanan', 'madhusoodhanan@residentia.local', '9876543218', id, 'sold', TRUE
+INSERT INTO public.units (unit_no, floor, type, owner_name, owner_email, owner_phone, owner_user_id, status, billing_enabled, property_name, monthly_rent)
+SELECT 'C102', 3, '2BHK', 'Madhusoodhanan', 'madhusoodhanan@residentia.local', '9876543218', id, 'sold', TRUE, 'Garden View 2BHK', 12000
 FROM public.users WHERE email = 'madhusoodhanan@residentia.local'
 ON CONFLICT DO NOTHING;
 

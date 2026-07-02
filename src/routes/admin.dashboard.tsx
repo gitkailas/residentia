@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { inr, formatDate, MONTHS } from "@/lib/format";
@@ -27,19 +28,43 @@ function Stat({ icon: Icon, label, value, hint, accent }: { icon: any; label: st
 }
 
 function Dashboard() {
+  const { user, role } = useAuth();
   const { data, isLoading } = useQuery({
-    queryKey: ["admin-dashboard"],
+    queryKey: ["admin-dashboard", role === "owner" ? user?.id : "all"],
     queryFn: async () => {
       const today = new Date();
       const monthName = MONTHS[today.getMonth()];
       const year = today.getFullYear();
 
+      // If owner, first fetch assigned unit IDs for scoping
+      let ownerUnitIds: string[] = [];
+      const isOwner = role === "owner" && !!user?.id;
+      if (isOwner) {
+        const result = await supabase.from("units").select("id").eq("owner_user_id", user.id);
+        ownerUnitIds = (result.data ?? []).map((u: any) => u.id);
+        if (ownerUnitIds.length === 0) {
+          return { units: [], billing: [], payments: [], recent: [], expiring: [], monthName, year };
+        }
+      }
+
+      let unitsQuery = supabase.from("units").select("*");
+      let billingQuery = supabase.from("billing_cycles").select("*").eq("month", monthName).eq("year", year);
+      let paymentsQuery = supabase.from("payments").select("total_paid, balance, status, created_at, unit_id");
+      let recentQuery = supabase.from("payments").select("id, total_paid, payment_date, payment_mode, unit_id, units(unit_no, owner_name)").order("created_at", { ascending: false }).limit(10);
+      let expiringQuery = supabase.from("units").select("unit_no, owner_name, waiver_end_date").not("waiver_end_date", "is", null);
+
+      if (isOwner) {
+        unitsQuery = unitsQuery.eq("owner_user_id", user.id);
+        expiringQuery = expiringQuery.eq("owner_user_id", user.id);
+        if (ownerUnitIds.length > 0) {
+          billingQuery = billingQuery.in("unit_id", ownerUnitIds);
+          paymentsQuery = paymentsQuery.in("unit_id", ownerUnitIds);
+          recentQuery = recentQuery.in("unit_id", ownerUnitIds);
+        }
+      }
+
       const [units, billing, payments, recent, expiring] = await Promise.all([
-        supabase.from("units").select("*"),
-        supabase.from("billing_cycles").select("*").eq("month", monthName).eq("year", year),
-        supabase.from("payments").select("total_paid, balance, status, created_at, unit_id"),
-        supabase.from("payments").select("id, total_paid, payment_date, payment_mode, unit_id, units(unit_no, owner_name)").order("created_at", { ascending: false }).limit(10),
-        supabase.from("units").select("unit_no, owner_name, waiver_end_date").not("waiver_end_date", "is", null),
+        unitsQuery, billingQuery, paymentsQuery, recentQuery, expiringQuery,
       ]);
 
       return {

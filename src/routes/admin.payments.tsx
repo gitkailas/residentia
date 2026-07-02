@@ -17,14 +17,18 @@ export const Route = createFileRoute("/admin/payments")({
 });
 
 function PaymentEntry() {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const { data: units = [] } = useQuery({
-    queryKey: ["units-billing-enabled"],
+    queryKey: ["units-billing-enabled", role === "owner" ? user?.id : "all"],
     queryFn: async () => {
-      const { data } = await supabase
+      let query = supabase
         .from("units")
         .select("id, unit_no, type, owner_name, billing_enabled, waiver_end_date")
         .order("floor").order("unit_no");
+      if (role === "owner" && user?.id) {
+        query = query.eq("owner_user_id", user.id);
+      }
+      const { data } = await query;
       return data ?? [];
     },
   });
@@ -78,23 +82,49 @@ function PaymentEntry() {
       cycleId = created.id;
     }
 
-    const { error: payErr } = await supabase.from("payments").insert({
-      billing_cycle_id: cycleId,
-      unit_id: unit.id,
-      amount_maintenance: maint,
-      amount_garbage: garbage,
-      total_paid: totalPaid,
-      balance,
-      payment_date: date,
-      payment_mode: mode,
-      reference_no: refNo || null,
-      status,
-      recorded_by: user?.email ?? null,
-    });
-    setBusy(false);
-    if (payErr) { toast.error(payErr.message); return; }
+    // Check for existing payment for this billing cycle to avoid duplicates
+    const { data: existingPayment } = await supabase
+      .from("payments")
+      .select("id")
+      .eq("billing_cycle_id", cycleId)
+      .maybeSingle();
 
-    toast.success(`Payment recorded — ${status}`);
+    if (existingPayment) {
+      const { error: payErr } = await supabase
+        .from("payments")
+        .update({
+          amount_maintenance: maint,
+          amount_garbage: garbage,
+          total_paid: totalPaid,
+          balance,
+          payment_date: date,
+          payment_mode: mode,
+          reference_no: refNo || null,
+          status,
+          recorded_by: user?.email ?? null,
+        })
+        .eq("id", existingPayment.id);
+      setBusy(false);
+      if (payErr) { toast.error(payErr.message); return; }
+      toast.success(`Payment updated — ${status}`);
+    } else {
+      const { error: payErr } = await supabase.from("payments").insert({
+        billing_cycle_id: cycleId,
+        unit_id: unit.id,
+        amount_maintenance: maint,
+        amount_garbage: garbage,
+        total_paid: totalPaid,
+        balance,
+        payment_date: date,
+        payment_mode: mode,
+        reference_no: refNo || null,
+        status,
+        recorded_by: user?.email ?? null,
+      });
+      setBusy(false);
+      if (payErr) { toast.error(payErr.message); return; }
+      toast.success(`Payment recorded — ${status}`);
+    }
     setMaint(0); setGarbage(0); setRefNo("");
   }
 

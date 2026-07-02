@@ -299,6 +299,8 @@ export type Database = {
           id: string
           key_handover_date: string | null
           owner_name: string | null
+          owner_phone: string | null
+          owner_email: string | null
           owner_user_id: string | null
           registration_date: string | null
           status: string
@@ -307,6 +309,10 @@ export type Database = {
           updated_at: string
           waiver_end_date: string | null
           waiver_start_date: string | null
+          property_name: string | null
+          description: string | null
+          area_sqft: number | null
+          monthly_rent: number
         }
         Insert: {
           billing_enabled?: boolean
@@ -315,6 +321,8 @@ export type Database = {
           id?: string
           key_handover_date?: string | null
           owner_name?: string | null
+          owner_phone?: string | null
+          owner_email?: string | null
           owner_user_id?: string | null
           registration_date?: string | null
           status?: string
@@ -323,6 +331,10 @@ export type Database = {
           updated_at?: string
           waiver_end_date?: string | null
           waiver_start_date?: string | null
+          property_name?: string | null
+          description?: string | null
+          area_sqft?: number | null
+          monthly_rent?: number
         }
         Update: {
           billing_enabled?: boolean
@@ -331,6 +343,8 @@ export type Database = {
           id?: string
           key_handover_date?: string | null
           owner_name?: string | null
+          owner_phone?: string | null
+          owner_email?: string | null
           owner_user_id?: string | null
           registration_date?: string | null
           status?: string
@@ -339,6 +353,10 @@ export type Database = {
           updated_at?: string
           waiver_end_date?: string | null
           waiver_start_date?: string | null
+          property_name?: string | null
+          description?: string | null
+          area_sqft?: number | null
+          monthly_rent?: number
         }
         Relationships: []
       }

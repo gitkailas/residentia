@@ -105,6 +105,18 @@ function buildWhere(filters: any[], startIndex = 1) {
       continue;
     }
 
+    if (type === "in") {
+      if (!Array.isArray(value) || value.length === 0) {
+        clauses.push("FALSE");
+      } else {
+        const placeholders = value.map((_, i) => `$${index + i}`).join(", ");
+        clauses.push(`${columnRef} IN (${placeholders})`);
+        values.push(...value);
+        index += value.length;
+      }
+      continue;
+    }
+
     if (type === "not") {
       if (operator === "is" && value === null) {
         clauses.push(`NOT (${columnRef} IS NULL)`);

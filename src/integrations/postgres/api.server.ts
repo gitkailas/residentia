@@ -26,6 +26,12 @@ export async function handleApiRequest(request: Request) {
     }
     return handleCreateTenant(request);
   }
+  if (url.pathname === "/api/auth/delete-tenant") {
+    if (request.method !== "POST") {
+      return new Response(JSON.stringify({ error: { message: "Method not allowed" } }), { status: 405, headers: { "content-type": "application/json" } });
+    }
+    return handleDeleteTenant(request);
+  }
   if (url.pathname === "/api/db") {
     if (request.method !== "POST") {
       return new Response(JSON.stringify({ error: { message: "Method not allowed" } }), { status: 405, headers: { "content-type": "application/json" } });
@@ -192,6 +198,19 @@ async function handleCreateTenant(request: Request) {
     return new Response(JSON.stringify({ error: { message: "A user with this email already exists" } }), { status: 409, headers: { "content-type": "application/json" } });
   }
 
+  if (claims.role === "owner" && unit_id) {
+    const unitResult = await pgPool.query(
+      `SELECT id, owner_user_id FROM public.units WHERE id = $1`,
+      [unit_id],
+    );
+    if (unitResult.rows.length === 0) {
+      return new Response(JSON.stringify({ error: { message: "Unit not found" } }), { status: 404, headers: { "content-type": "application/json" } });
+    }
+    if (unitResult.rows[0].owner_user_id !== claims.sub) {
+      return new Response(JSON.stringify({ error: { message: "Forbidden: you do not own this unit" } }), { status: 403, headers: { "content-type": "application/json" } });
+    }
+  }
+
   const passwordHash = await hashPassword(password);
   const client = await pgPool.connect();
 
@@ -215,8 +234,8 @@ async function handleCreateTenant(request: Request) {
     );
 
     await client.query(
-      `UPDATE public.units SET owner_phone = $1 WHERE id = $2`,
-      [phone || null, unit_id || null],
+      `UPDATE public.units SET owner_name = $1, owner_phone = $2, status = 'sold' WHERE id = $3`,
+      [name || null, phone || null, unit_id || null],
     );
 
     await client.query("COMMIT");
@@ -230,6 +249,81 @@ async function handleCreateTenant(request: Request) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error("[CREATE-TENANT] Error:", msg);
     return new Response(JSON.stringify({ error: { message: `Failed to create tenant: ${msg}` } }), { status: 500, headers: { "content-type": "application/json" } });
+  } finally {
+    try { client.release(); } catch {}
+  }
+}
+
+async function handleDeleteTenant(request: Request) {
+  const claims = getTokenClaims(request);
+  if (!claims || (claims.role !== "master_admin" && claims.role !== "owner")) {
+    return new Response(JSON.stringify({ error: { message: "Forbidden" } }), { status: 403, headers: { "content-type": "application/json" } });
+  }
+
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== "object") {
+    return new Response(JSON.stringify({ error: { message: "Invalid request body" } }), { status: 400, headers: { "content-type": "application/json" } });
+  }
+
+  const { unit_id } = body as { unit_id?: string };
+  if (!unit_id) {
+    return new Response(JSON.stringify({ error: { message: "unit_id is required" } }), { status: 400, headers: { "content-type": "application/json" } });
+  }
+
+  const client = await pgPool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // If owner, verify they own the unit
+    if (claims.role === "owner") {
+      const unitResult = await client.query(
+        `SELECT id, owner_user_id FROM public.units WHERE id = $1`,
+        [unit_id],
+      );
+      if (unitResult.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return new Response(JSON.stringify({ error: { message: "Unit not found" } }), { status: 404, headers: { "content-type": "application/json" } });
+      }
+      if (unitResult.rows[0].owner_user_id !== claims.sub) {
+        await client.query("ROLLBACK");
+        return new Response(JSON.stringify({ error: { message: "Forbidden: you do not own this unit" } }), { status: 403, headers: { "content-type": "application/json" } });
+      }
+    }
+
+    // Find the tenant user linked to this unit via profiles
+    const profileResult = await client.query(
+      `SELECT id FROM public.profiles WHERE unit_id = $1 LIMIT 1`,
+      [unit_id],
+    );
+
+    const tenantUserId = profileResult.rows.length > 0 ? profileResult.rows[0].id : null;
+
+    // Clear tenant info from unit
+    await client.query(
+      `UPDATE public.units SET owner_name = NULL, owner_phone = NULL WHERE id = $1`,
+      [unit_id],
+    );
+
+    // Delete the tenant user if one exists (cascades to profiles, user_roles)
+    if (tenantUserId) {
+      await client.query(
+        `DELETE FROM public.users WHERE id = $1`,
+        [tenantUserId],
+      );
+    }
+
+    await client.query("COMMIT");
+
+    return new Response(JSON.stringify({ data: { success: true } }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  } catch (error) {
+    try { await client.query("ROLLBACK"); } catch {}
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[DELETE-TENANT] Error:", msg);
+    return new Response(JSON.stringify({ error: { message: `Failed to delete tenant: ${msg}` } }), { status: 500, headers: { "content-type": "application/json" } });
   } finally {
     try { client.release(); } catch {}
   }

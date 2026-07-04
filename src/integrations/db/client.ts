@@ -1,5 +1,5 @@
-// This file is a Postgres-backed replacement for the original Supabase client.
-// It exposes the same minimal API surface used by the app.
+// Postgres-backed DB client. Exposes a query-builder API surface.
+// All queries are sent as JSON to /api/db, where db.server.ts converts them to SQL.
 
 type User = {
   id: string;
@@ -204,7 +204,10 @@ const auth = {
       body: JSON.stringify({ email, password }),
     });
     if (result?.error) {
-      return { data: { session: null }, error: { message: result.error.message ?? "Login failed" } };
+      return {
+        data: { session: null },
+        error: { message: result.error.message ?? "Login failed" },
+      };
     }
     if (result?.data?.session?.access_token) {
       setStoredToken(result.data.session.access_token);
@@ -244,7 +247,7 @@ const auth = {
   },
 };
 
-export const supabase = {
+export const db = {
   auth,
   from(table: string) {
     return new PostgresQueryBuilder(table);
@@ -252,4 +255,3 @@ export const supabase = {
 };
 
 export type { Session, User };
-

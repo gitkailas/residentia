@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/integrations/db/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Brand } from "@/components/Brand";
 import { Button } from "@/components/ui/button";
@@ -28,7 +28,7 @@ function LoginPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await db.auth.signInWithPassword({ email, password });
     setBusy(false);
     if (error) {
       toast.error(error.message);
@@ -66,11 +66,25 @@ function LoginPage() {
           <form onSubmit={onSubmit} className="mt-6 space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email or Phone</Label>
-              <Input id="email" type="text" inputMode="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email or phone number" />
+              <Input
+                id="email"
+                type="text"
+                inputMode="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="email or phone number"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+              <Input
+                id="password"
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
             </div>
             <Button type="submit" disabled={busy} className="w-full bg-primary hover:bg-primary/90">
               {busy ? "Signing in…" : "Sign in"}

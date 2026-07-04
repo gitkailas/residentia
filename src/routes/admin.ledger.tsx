@@ -1,11 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/integrations/db/client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { StatusBadge } from "@/components/StatusBadge";
 import { inr, formatDate, MONTHS } from "@/lib/format";
 import { generateReceiptPDF } from "@/lib/receipt";
@@ -27,9 +33,11 @@ function Ledger() {
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["ledger"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data } = await db
         .from("payments")
-        .select("id, total_paid, balance, status, payment_date, payment_mode, reference_no, billing_cycles(month, year, total_due), units(unit_no, owner_name, type)")
+        .select(
+          "id, total_paid, balance, status, payment_date, payment_mode, reference_no, billing_cycles(month, year, total_due), units(unit_no, owner_name, type)",
+        )
         .order("created_at", { ascending: false })
         .limit(500);
       return data ?? [];
@@ -56,27 +64,43 @@ function Ledger() {
   }, [rows, search, status, month]);
 
   function exportCsv() {
-    const headers = ["Unit", "Owner", "Month", "Year", "Due", "Paid", "Balance", "Status", "Date", "Mode", "Ref"];
+    const headers = [
+      "Unit",
+      "Owner",
+      "Month",
+      "Year",
+      "Due",
+      "Paid",
+      "Balance",
+      "Status",
+      "Date",
+      "Mode",
+      "Ref",
+    ];
     const lines = [headers.join(",")];
     filtered.forEach((r: any) => {
-      lines.push([
-        r.units?.unit_no ?? "",
-        (r.units?.owner_name ?? "").replace(/,/g, " "),
-        r.billing_cycles?.month ?? "",
-        r.billing_cycles?.year ?? "",
-        r.billing_cycles?.total_due ?? "",
-        r.total_paid,
-        r.balance,
-        r.status,
-        formatDate(r.payment_date),
-        r.payment_mode ?? "",
-        r.reference_no ?? "",
-      ].join(","));
+      lines.push(
+        [
+          r.units?.unit_no ?? "",
+          (r.units?.owner_name ?? "").replace(/,/g, " "),
+          r.billing_cycles?.month ?? "",
+          r.billing_cycles?.year ?? "",
+          r.billing_cycles?.total_due ?? "",
+          r.total_paid,
+          r.balance,
+          r.status,
+          formatDate(r.payment_date),
+          r.payment_mode ?? "",
+          r.reference_no ?? "",
+        ].join(","),
+      );
     });
     const blob = new Blob([lines.join("\n")], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = `ledger-${Date.now()}.csv`; a.click();
+    a.href = url;
+    a.download = `ledger-${Date.now()}.csv`;
+    a.click();
     URL.revokeObjectURL(url);
   }
 
@@ -87,28 +111,46 @@ function Ledger() {
           <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Payment Ledger</h1>
           <p className="text-sm text-muted-foreground">{filtered.length} entries</p>
         </div>
-        <Button onClick={exportCsv} variant="outline"><Download className="mr-2 h-4 w-4" />Export CSV</Button>
+        <Button onClick={exportCsv} variant="outline">
+          <Download className="mr-2 h-4 w-4" />
+          Export CSV
+        </Button>
       </div>
 
       <Card className="p-4">
         <div className="grid gap-3 md:grid-cols-4">
           <div className="relative md:col-span-2">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input className="pl-9" placeholder="Search unit or owner" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <Input
+              className="pl-9"
+              placeholder="Search unit or owner"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
           </div>
           <Select value={month} onValueChange={setMonth}>
-            <SelectTrigger><SelectValue placeholder="Month" /></SelectTrigger>
+            <SelectTrigger>
+              <SelectValue placeholder="Month" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All months</SelectItem>
-              {MONTHS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+              {MONTHS.map((m) => (
+                <SelectItem key={m} value={m}>
+                  {m}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
+            <SelectTrigger>
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All statuses</SelectItem>
-              {["PAID","UNPAID","PARTIAL","WAIVER PERIOD","ADVANCE PAID"].map((s) => (
-                <SelectItem key={s} value={s}>{s}</SelectItem>
+              {["PAID", "UNPAID", "PARTIAL", "WAIVER PERIOD", "ADVANCE PAID"].map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -142,31 +184,42 @@ function Ledger() {
                   <tr key={r.id} className={`border-t ${STATUS_ROW[r.status] ?? ""}`}>
                     <td className="px-4 py-3 font-semibold">{r.units?.unit_no}</td>
                     <td className="px-4 py-3">{r.units?.owner_name ?? "—"}</td>
-                    <td className="px-4 py-3">{r.billing_cycles?.month} {r.billing_cycles?.year}</td>
+                    <td className="px-4 py-3">
+                      {r.billing_cycles?.month} {r.billing_cycles?.year}
+                    </td>
                     <td className="px-4 py-3 text-right">{inr(r.billing_cycles?.total_due)}</td>
                     <td className="px-4 py-3 text-right font-medium">{inr(r.total_paid)}</td>
                     <td className="px-4 py-3 text-right">{inr(r.balance)}</td>
-                    <td className="px-4 py-3"><StatusBadge status={r.status} /></td>
+                    <td className="px-4 py-3">
+                      <StatusBadge status={r.status} />
+                    </td>
                     <td className="px-4 py-3">{formatDate(r.payment_date)}</td>
                     <td className="px-4 py-3">{r.payment_mode ?? "—"}</td>
                     <td className="px-4 py-3 text-right">
-                      <Button variant="ghost" size="sm" onClick={() => generateReceiptPDF({
-                        receiptNo: r.id.slice(0, 8).toUpperCase(),
-                        unitNo: r.units?.unit_no ?? "",
-                        ownerName: r.units?.owner_name ?? null,
-                        type: r.units?.type ?? "",
-                        month: r.billing_cycles?.month ?? "—",
-                        year: r.billing_cycles?.year ?? "",
-                        amountMaintenance: 0,
-                        amountGarbage: 0,
-                        totalPaid: Number(r.total_paid),
-                        balance: Number(r.balance),
-                        paymentDate: r.payment_date,
-                        paymentMode: r.payment_mode,
-                        referenceNo: r.reference_no,
-                        status: r.status,
-                      })}>
-                        <FileText className="mr-1 h-4 w-4" />Receipt
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          generateReceiptPDF({
+                            receiptNo: r.id.slice(0, 8).toUpperCase(),
+                            unitNo: r.units?.unit_no ?? "",
+                            ownerName: r.units?.owner_name ?? null,
+                            type: r.units?.type ?? "",
+                            month: r.billing_cycles?.month ?? "—",
+                            year: r.billing_cycles?.year ?? "",
+                            amountMaintenance: 0,
+                            amountGarbage: 0,
+                            totalPaid: Number(r.total_paid),
+                            balance: Number(r.balance),
+                            paymentDate: r.payment_date,
+                            paymentMode: r.payment_mode,
+                            referenceNo: r.reference_no,
+                            status: r.status,
+                          })
+                        }
+                      >
+                        <FileText className="mr-1 h-4 w-4" />
+                        Receipt
                       </Button>
                     </td>
                   </tr>

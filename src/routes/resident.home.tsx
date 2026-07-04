@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/integrations/db/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -21,28 +21,39 @@ function ResidentHome() {
       const month = MONTHS[today.getMonth()];
       const year = today.getFullYear();
 
-      const { data: profile } = await supabase
-        .from("profiles").select("full_name, unit_id").eq("id", user!.id).maybeSingle();
+      const { data: profile } = await db
+        .from("profiles")
+        .select("full_name, unit_id")
+        .eq("id", user!.id)
+        .maybeSingle();
 
       let unit: any = null;
       let cycle: any = null;
       let payments: any[] = [];
 
       if (profile?.unit_id) {
-        const { data: u } = await supabase.from("units").select("*").eq("id", profile.unit_id).single();
+        const { data: u } = await db.from("units").select("*").eq("id", profile.unit_id).single();
         unit = u;
-        const { data: c } = await supabase
-          .from("billing_cycles").select("*")
-          .eq("unit_id", profile.unit_id).eq("month", month).eq("year", year).maybeSingle();
+        const { data: c } = await db
+          .from("billing_cycles")
+          .select("*")
+          .eq("unit_id", profile.unit_id)
+          .eq("month", month)
+          .eq("year", year)
+          .maybeSingle();
         cycle = c;
-        const { data: p } = await supabase
-          .from("payments").select("total_paid, balance, status, billing_cycle_id")
+        const { data: p } = await db
+          .from("payments")
+          .select("total_paid, balance, status, billing_cycle_id")
           .eq("unit_id", profile.unit_id);
         payments = p ?? [];
       }
 
-      const { data: announcements } = await supabase
-        .from("announcements").select("*").order("created_at", { ascending: false }).limit(3);
+      const { data: announcements } = await db
+        .from("announcements")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(3);
 
       return { profile, unit, cycle, payments, announcements: announcements ?? [], month, year };
     },
@@ -65,7 +76,11 @@ function ResidentHome() {
 
   const inWaiver = unit.status === "sold" && !unit.billing_enabled;
   const rate = RATES[unit.type as keyof typeof RATES] ?? { maintenance: 0, garbage: 0 };
-  const monthCycle = cycle ?? { maintenance_due: rate.maintenance, garbage_due: rate.garbage, total_due: rate.maintenance + rate.garbage };
+  const monthCycle = cycle ?? {
+    maintenance_due: rate.maintenance,
+    garbage_due: rate.garbage,
+    total_due: rate.maintenance + rate.garbage,
+  };
   const monthPayment = payments.find((p) => p.billing_cycle_id === cycle?.id);
   const status = monthPayment?.status ?? (inWaiver ? "WAIVER PERIOD" : "UNPAID");
   const totalOutstanding = payments.reduce((s, p) => s + Number(p.balance ?? 0), 0);
@@ -77,7 +92,9 @@ function ResidentHome() {
         <h1 className="text-2xl font-bold tracking-tight">
           Hello {profile.full_name?.split(" ")[0] ?? "Resident"}
         </h1>
-        <p className="text-sm text-muted-foreground">Unit {unit.unit_no} · Floor {unit.floor} · {unit.type}</p>
+        <p className="text-sm text-muted-foreground">
+          Unit {unit.unit_no} · Floor {unit.floor} · {unit.type}
+        </p>
       </div>
 
       {inWaiver && (
@@ -85,16 +102,22 @@ function ResidentHome() {
           <div className="flex items-start gap-3">
             <Info className="mt-0.5 h-5 w-5 text-status-waiver" />
             <div className="text-sm">
-              <div className="font-semibold text-status-waiver">You're in maintenance waiver period</div>
+              <div className="font-semibold text-status-waiver">
+                You're in maintenance waiver period
+              </div>
               <p className="mt-1 text-foreground/80">
                 No dues are applicable until <strong>{formatDate(unit.waiver_end_date)}</strong>.
                 Billing begins from{" "}
                 <strong>
                   {unit.waiver_end_date
-                    ? new Date(new Date(unit.waiver_end_date).setMonth(new Date(unit.waiver_end_date).getMonth() + 1))
-                        .toLocaleString("en-IN", { month: "long", year: "numeric" })
+                    ? new Date(
+                        new Date(unit.waiver_end_date).setMonth(
+                          new Date(unit.waiver_end_date).getMonth() + 1,
+                        ),
+                      ).toLocaleString("en-IN", { month: "long", year: "numeric" })
                     : "—"}
-                </strong>.
+                </strong>
+                .
               </p>
             </div>
           </div>
@@ -105,7 +128,9 @@ function ResidentHome() {
         <Card className="p-5">
           <div className="flex items-start justify-between">
             <div>
-              <div className="text-xs uppercase tracking-wider text-muted-foreground">{month} {year}</div>
+              <div className="text-xs uppercase tracking-wider text-muted-foreground">
+                {month} {year}
+              </div>
               <div className="mt-1 text-lg font-bold">Maintenance dues</div>
             </div>
             <StatusBadge status={status} />
@@ -138,7 +163,9 @@ function ResidentHome() {
       <div>
         <div className="mb-2 flex items-center gap-2">
           <Megaphone className="h-4 w-4 text-gold" />
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Announcements</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            Announcements
+          </h2>
         </div>
         {announcements.length === 0 ? (
           <Card className="p-4 text-sm text-muted-foreground">No announcements.</Card>

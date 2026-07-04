@@ -29,7 +29,11 @@ function ResidentLayout() {
   }, [loading, session, role, nav]);
 
   if (loading || !session) {
-    return <div className="flex min-h-screen items-center justify-center"><Brand /></div>;
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Brand />
+      </div>
+    );
   }
 
   return (
@@ -37,15 +41,22 @@ function ResidentLayout() {
       <header className="sticky top-0 z-30 border-b bg-primary text-primary-foreground">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gold text-gold-foreground font-bold">R</div>
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gold text-gold-foreground font-bold">
+              R
+            </div>
             <div className="leading-tight">
               <div className="text-sm font-bold">Residentia</div>
-              <div className="text-[10px] uppercase tracking-wider opacity-80">RWA Malabar Red Orchids</div>
+              <div className="text-[10px] uppercase tracking-wider opacity-80">
+                RWA Malabar Red Orchids
+              </div>
             </div>
           </div>
           <button
             aria-label="Sign out"
-            onClick={async () => { await signOut(); nav({ to: "/login" }); }}
+            onClick={async () => {
+              await signOut();
+              nav({ to: "/login" });
+            }}
             className="rounded-md p-2 hover:bg-white/10"
           >
             <LogOut className="h-4 w-4" />
@@ -69,7 +80,7 @@ function ResidentLayout() {
                 to={t.to}
                 className={cn(
                   "flex flex-col items-center justify-center gap-1 py-3 text-[11px] font-medium transition-colors",
-                  active ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                  active ? "text-primary" : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 <Icon className="h-5 w-5" />

@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     id UUID PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
     full_name TEXT,
     email TEXT,
-    phone TEXT,
+    phone TEXT UNIQUE,
     unit_id UUID REFERENCES public.units(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS public.units (
     type VARCHAR(50) NOT NULL,
     owner_name VARCHAR(255),
     owner_email VARCHAR(255),
-    owner_phone VARCHAR(20),
+    owner_phone VARCHAR(20) UNIQUE,
     owner_user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
     status VARCHAR(50) NOT NULL DEFAULT 'unsold',
     billing_enabled BOOLEAN NOT NULL DEFAULT false,
@@ -52,8 +52,61 @@ CREATE TABLE IF NOT EXISTS public.units (
     description TEXT,
     area_sqft INT,
     monthly_rent DECIMAL(10,2) NOT NULL DEFAULT 0,
+    pay_by_day INT NOT NULL DEFAULT 20,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Trigger: auto-calc waiver dates + billing_enabled on any unit change
+CREATE OR REPLACE FUNCTION public.units_compute_waiver()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.registration_date IS NOT NULL AND NEW.key_handover_date IS NOT NULL THEN
+    NEW.waiver_start_date := LEAST(NEW.registration_date, NEW.key_handover_date);
+  ELSIF NEW.registration_date IS NOT NULL THEN
+    NEW.waiver_start_date := NEW.registration_date;
+  ELSIF NEW.key_handover_date IS NOT NULL THEN
+    NEW.waiver_start_date := NEW.key_handover_date;
+  ELSE
+    NEW.waiver_start_date := NULL;
+  END IF;
+
+  IF NEW.waiver_start_date IS NOT NULL THEN
+    NEW.waiver_end_date := NEW.waiver_start_date + INTERVAL '6 months';
+  ELSE
+    NEW.waiver_end_date := NULL;
+  END IF;
+
+  IF NEW.status = 'sold' AND NEW.waiver_end_date IS NOT NULL AND CURRENT_DATE > NEW.waiver_end_date THEN
+    NEW.billing_enabled := true;
+  ELSIF NEW.status = 'sold' AND NEW.waiver_end_date IS NULL THEN
+    NEW.billing_enabled := true;
+  ELSE
+    NEW.billing_enabled := false;
+  END IF;
+
+  NEW.updated_at := now();
+  RETURN NEW;
+END $$;
+
+CREATE TRIGGER trg_units_compute_waiver
+  BEFORE INSERT OR UPDATE ON public.units
+  FOR EACH ROW EXECUTE FUNCTION public.units_compute_waiver();
+
+-- Fix existing corrupted data: recalculate billing_enabled for all units
+UPDATE public.units
+SET billing_enabled =
+  CASE
+    WHEN status = 'sold' AND waiver_end_date IS NOT NULL AND CURRENT_DATE > waiver_end_date THEN true
+    WHEN status = 'sold' AND waiver_end_date IS NULL THEN true
+    ELSE false
+  END
+WHERE billing_enabled IS DISTINCT FROM (
+  CASE
+    WHEN status = 'sold' AND waiver_end_date IS NOT NULL AND CURRENT_DATE > waiver_end_date THEN true
+    WHEN status = 'sold' AND waiver_end_date IS NULL THEN true
+    ELSE false
+  END
 );
 
 -- Billing cycles table (monthly billing periods)
@@ -62,6 +115,10 @@ CREATE TABLE IF NOT EXISTS public.billing_cycles (
     unit_id UUID NOT NULL REFERENCES public.units(id) ON DELETE CASCADE,
     month VARCHAR(20) NOT NULL,
     year INT NOT NULL,
+    period_start DATE,
+    period_end DATE,
+    days_billed INT,
+    due_date DATE,
     maintenance_due DECIMAL(10, 2) NOT NULL DEFAULT 0,
     garbage_due DECIMAL(10, 2) NOT NULL DEFAULT 0,
     total_due DECIMAL(10, 2) NOT NULL DEFAULT 0,
@@ -70,6 +127,8 @@ CREATE TABLE IF NOT EXISTS public.billing_cycles (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(unit_id, month, year)
 );
+
+CREATE INDEX IF NOT EXISTS idx_billing_cycles_period_start ON public.billing_cycles(period_start);
 
 -- Payments table (payment records)
 CREATE TABLE IF NOT EXISTS public.payments (

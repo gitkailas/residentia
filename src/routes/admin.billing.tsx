@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/integrations/db/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +25,7 @@ function BillingGenerator() {
   const { data: units = [] } = useQuery({
     queryKey: ["units-for-billing"],
     queryFn: async () => {
-      const { data } = await supabase.from("units").select("*").order("floor").order("unit_no");
+      const { data } = await db.from("units").select("*").order("floor").order("unit_no");
       return data ?? [];
     },
   });
@@ -33,7 +33,7 @@ function BillingGenerator() {
   const { data: existing = [] } = useQuery({
     queryKey: ["billing-cycles", month, year],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data } = await db
         .from("billing_cycles")
         .select("unit_id, total_due, is_waiver_period")
         .eq("month", month).eq("year", year);
@@ -73,7 +73,7 @@ function BillingGenerator() {
         is_waiver_period: !u.billing_enabled,
       };
     });
-    const { error } = await supabase.from("billing_cycles").insert(rows);
+    const { error } = await db.from("billing_cycles").insert(rows);
     setBusy(false);
     if (error) { toast.error(error.message); return; }
     toast.success(`Generated ${rows.length} billing cycle(s) for ${month} ${year}`);

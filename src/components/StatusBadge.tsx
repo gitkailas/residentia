@@ -1,6 +1,16 @@
 import { cn } from "@/lib/utils";
 
-type Status = "PAID" | "UNPAID" | "PARTIAL" | "WAIVER PERIOD" | "ADVANCE PAID" | "PENDING VERIFICATION" | "Active" | "Waiver Period" | "Vacant";
+type Status =
+  | "PAID"
+  | "UNPAID"
+  | "PARTIAL"
+  | "WAIVER PERIOD"
+  | "ADVANCE PAID"
+  | "PENDING VERIFICATION"
+  | "Active"
+  | "Occupied"
+  | "Waiver Period"
+  | "Vacant";
 
 const map: Record<string, string> = {
   PAID: "bg-status-paid text-white",
@@ -10,6 +20,7 @@ const map: Record<string, string> = {
   "ADVANCE PAID": "bg-status-advance text-white",
   "PENDING VERIFICATION": "bg-muted text-foreground",
   Active: "bg-status-paid text-white",
+  Occupied: "bg-status-paid text-white",
   "Waiver Period": "bg-status-waiver text-white",
   Vacant: "bg-muted text-foreground",
   Open: "bg-status-partial text-white",
@@ -19,7 +30,13 @@ const map: Record<string, string> = {
   Rejected: "bg-status-unpaid text-white",
 };
 
-export function StatusBadge({ status, className }: { status: Status | string; className?: string }) {
+export function StatusBadge({
+  status,
+  className,
+}: {
+  status: Status | string;
+  className?: string;
+}) {
   return (
     <span
       className={cn(

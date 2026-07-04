@@ -94,11 +94,11 @@
   --ring: oklch(0.32 0.06 250);
 
   /* Status colors */
-  --status-paid: oklch(0.62 0.18 145);          /* #16A34A green */
-  --status-unpaid: oklch(0.6 0.22 27);          /* #DC2626 red */
-  --status-partial: oklch(0.7 0.16 60);         /* #D97706 amber */
-  --status-waiver: oklch(0.62 0.19 255);        /* #3B82F6 blue */
-  --status-advance: oklch(0.55 0.22 295);       /* #7C3AED purple */
+  --status-paid: oklch(0.62 0.18 145); /* #16A34A green */
+  --status-unpaid: oklch(0.6 0.22 27); /* #DC2626 red */
+  --status-partial: oklch(0.7 0.16 60); /* #D97706 amber */
+  --status-waiver: oklch(0.62 0.19 255); /* #3B82F6 blue */
+  --status-advance: oklch(0.55 0.22 295); /* #7C3AED purple */
 
   --chart-1: oklch(0.32 0.06 250);
   --chart-2: oklch(0.78 0.16 75);
@@ -137,10 +137,18 @@
 }
 
 @layer base {
-  * { border-color: var(--color-border); }
+  * {
+    border-color: var(--color-border);
+  }
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
-    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-family:
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      "Segoe UI",
+      Roboto,
+      sans-serif;
   }
 }

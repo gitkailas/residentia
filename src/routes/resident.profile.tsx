@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/integrations/db/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,13 +23,19 @@ function ProfilePage() {
     queryKey: ["resident-profile", user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const { data: profile } = await supabase
-        .from("profiles").select("full_name, email, phone, unit_id").eq("id", user!.id).maybeSingle();
+      const { data: profile } = await db
+        .from("profiles")
+        .select("full_name, email, phone, unit_id")
+        .eq("id", user!.id)
+        .maybeSingle();
 
       let unit: any = null;
       if (profile?.unit_id) {
-        const { data: u } = await supabase
-          .from("units").select("unit_no, floor, type, owner_name").eq("id", profile.unit_id).single();
+        const { data: u } = await db
+          .from("units")
+          .select("unit_no, floor, type, owner_name")
+          .eq("id", profile.unit_id)
+          .single();
         unit = u;
       }
 
@@ -46,9 +52,12 @@ function ProfilePage() {
   async function savePhone() {
     if (!user) return;
     setBusy(true);
-    const { error } = await supabase.from("profiles").update({ phone }).eq("id", user.id);
+    const { error } = await db.from("profiles").update({ phone }).eq("id", user.id);
     setBusy(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     toast.success("Phone number updated");
   }
 
@@ -77,7 +86,9 @@ function ProfilePage() {
         <Card className="p-5">
           <div className="mb-3 flex items-center gap-2">
             <Building2 className="h-4 w-4 text-gold" />
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Unit Details</h2>
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              Unit Details
+            </h2>
           </div>
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
@@ -103,7 +114,9 @@ function ProfilePage() {
       <Card className="p-5">
         <div className="mb-3 flex items-center gap-2">
           <Phone className="h-4 w-4 text-gold" />
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Contact Info</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            Contact Info
+          </h2>
         </div>
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-sm">
@@ -113,8 +126,17 @@ function ProfilePage() {
           <div className="space-y-2">
             <Label htmlFor="phone">Phone Number</Label>
             <div className="flex gap-2">
-              <Input id="phone" value={phone || data.phone} onChange={(e) => setPhone(e.target.value)} placeholder="Enter phone number" />
-              <Button onClick={savePhone} disabled={busy || !phone} className="bg-primary hover:bg-primary/90 shrink-0">
+              <Input
+                id="phone"
+                value={phone || data.phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="Enter phone number"
+              />
+              <Button
+                onClick={savePhone}
+                disabled={busy || !phone}
+                className="bg-primary hover:bg-primary/90 shrink-0"
+              >
                 {busy ? "Saving…" : "Save"}
               </Button>
             </div>

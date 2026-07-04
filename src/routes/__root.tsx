@@ -41,7 +41,10 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
         <h1 className="text-xl font-semibold">Something went wrong</h1>
         <p className="mt-2 text-sm text-muted-foreground">{error.message}</p>
         <button
-          onClick={() => { router.invalidate(); reset(); }}
+          onClick={() => {
+            router.invalidate();
+            reset();
+          }}
           className="mt-6 inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
         >
           Try again
@@ -67,8 +70,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:title", content: "Residentia — RWA Malabar Red Orchids" },
       { property: "og:description", content: "RWA Malabar Red Orchids — Resident Payment Portal" },
       { name: "twitter:description", content: "RWA Malabar Red Orchids — Resident Payment Portal" },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/455fb049-916a-4aea-b199-d63bdac31611/id-preview-f1a62e1d--e8478828-8445-48db-88c6-b4176742dcae.lovable.app-1778423345358.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/455fb049-916a-4aea-b199-d63bdac31611/id-preview-f1a62e1d--e8478828-8445-48db-88c6-b4176742dcae.lovable.app-1778423345358.png" },
+      {
+        property: "og:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/455fb049-916a-4aea-b199-d63bdac31611/id-preview-f1a62e1d--e8478828-8445-48db-88c6-b4176742dcae.lovable.app-1778423345358.png",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/455fb049-916a-4aea-b199-d63bdac31611/id-preview-f1a62e1d--e8478828-8445-48db-88c6-b4176742dcae.lovable.app-1778423345358.png",
+      },
       { name: "twitter:card", content: "summary_large_image" },
       { property: "og:type", content: "website" },
     ],
@@ -86,7 +97,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <head><HeadContent /></head>
+      <head>
+        <HeadContent />
+      </head>
       <body>
         {children}
         <Scripts />

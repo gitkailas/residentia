@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import type { Session, User } from "@/integrations/supabase/client";
-import { supabase } from "@/integrations/supabase/client";
+import type { Session, User } from "@/integrations/db/client";
+import { db } from "@/integrations/db/client";
 
 type Role = "master_admin" | "owner" | "resident" | null;
 
@@ -13,7 +13,10 @@ interface AuthCtx {
 }
 
 const Ctx = createContext<AuthCtx>({
-  session: null, user: null, role: null, loading: true,
+  session: null,
+  user: null,
+  role: null,
+  loading: true,
   signOut: async () => {},
 });
 
@@ -23,7 +26,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
+    const {
+      data: { subscription },
+    } = db.auth.onAuthStateChange((_e, s) => {
       setSession(s);
       if (s?.user) {
         // Defer role fetch to avoid deadlocks
@@ -34,7 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
+    db.auth.getSession().then(({ data: { session: s } }) => {
       setSession(s);
       if (s?.user) fetchRole(s.user.id);
       else setLoading(false);
@@ -44,11 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   async function fetchRole(uid: string) {
-    const { data } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", uid)
-      .maybeSingle();
+    const { data } = await db.from("user_roles").select("role").eq("user_id", uid).maybeSingle();
     setRole((data?.role as Role) ?? "resident");
     setLoading(false);
   }
@@ -60,7 +61,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user: session?.user ?? null,
         role,
         loading,
-        signOut: async () => { await supabase.auth.signOut(); },
+        signOut: async () => {
+          await db.auth.signOut();
+        },
       }}
     >
       {children}

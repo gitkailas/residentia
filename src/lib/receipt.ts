@@ -63,7 +63,10 @@ export function generateReceiptPDF(r: ReceiptInput) {
     body: [
       ["Maintenance charges", inr(r.amountMaintenance)],
       ["Garbage collection", inr(r.amountGarbage)],
-      [{ content: "Total Paid", styles: { fontStyle: "bold" } }, { content: inr(r.totalPaid), styles: { fontStyle: "bold" } }],
+      [
+        { content: "Total Paid", styles: { fontStyle: "bold" } },
+        { content: inr(r.totalPaid), styles: { fontStyle: "bold" } },
+      ],
       ["Balance Due", inr(r.balance)],
     ],
     theme: "grid",

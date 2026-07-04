@@ -1,14 +1,27 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/integrations/db/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Plus, Pencil, Trash2, IndianRupee, Ruler, Search, Building2 } from "lucide-react";
 import { toast } from "sonner";
@@ -54,8 +67,18 @@ async function apiFetch(path: string, body: unknown) {
     },
     body: JSON.stringify(body),
   });
-  const json = await res.json().catch(() => null);
-  if (!res.ok) throw new Error(json?.error?.message ?? res.statusText);
+
+  let json: any = null;
+  try {
+    json = await res.json();
+  } catch {
+    // Response is not JSON (e.g., HTML error page from an uncaught server exception)
+  }
+
+  if (!res.ok) {
+    const message = json?.error?.message || `Request failed with status ${res.status}`;
+    throw new Error(message);
+  }
   return json;
 }
 
@@ -67,7 +90,7 @@ function PropertiesPage() {
   const { data: properties = [], isLoading } = useQuery({
     queryKey: ["properties", role === "owner" ? user?.id : "all"],
     queryFn: async () => {
-      let query = supabase.from("units").select("*").order("floor").order("unit_no");
+      let query = db.from("units").select("*").order("floor").order("unit_no");
       if (role === "owner" && user?.id) {
         query = query.eq("owner_user_id", user.id);
       }
@@ -83,7 +106,11 @@ function PropertiesPage() {
   const [status, setStatus] = useState<string>("all");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Property | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<{ unitId: string; unitNo: string } | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    unitId: string;
+    unitNo: string;
+    ownerName: string | null;
+  } | null>(null);
 
   const filtered = useMemo(() => {
     return properties.filter((p) => {
@@ -92,21 +119,32 @@ function PropertiesPage() {
       if (search) {
         const s = search.toLowerCase();
         const name = p.property_name ?? p.unit_no;
-        if (!name.toLowerCase().includes(s) && !p.unit_no.toLowerCase().includes(s) && !(p.owner_name ?? "").toLowerCase().includes(s)) return false;
+        if (
+          !name.toLowerCase().includes(s) &&
+          !p.unit_no.toLowerCase().includes(s) &&
+          !(p.owner_name ?? "").toLowerCase().includes(s)
+        )
+          return false;
       }
       return true;
     });
   }, [properties, search, type, status]);
 
-  async function handleDelete(unitId: string) {
-    try {
-      const res = await apiFetch("/api/auth/delete-tenant", { unit_id: unitId });
-      if (res?.error) throw new Error(res.error.message);
-      toast.success("Property deleted");
-      qc.invalidateQueries({ queryKey: ["properties"] });
-    } catch (err: any) {
-      toast.error(err.message);
+  async function handleDelete(unitId: string, ownerName: string | null) {
+    if (ownerName) {
+      toast.error("Property is occupied, delete the tenant first");
+      setDeleteConfirm(null);
+      return;
     }
+    const { error } = await db.from("units").delete().eq("id", unitId);
+    if (error) {
+      toast.error(error.message);
+      setDeleteConfirm(null);
+      return;
+    }
+    qc.invalidateQueries({ queryKey: ["properties"] });
+    qc.invalidateQueries({ queryKey: ["admin-dashboard"] });
+    qc.invalidateQueries({ queryKey: ["apartment-names"] });
     setDeleteConfirm(null);
   }
 
@@ -118,22 +156,52 @@ function PropertiesPage() {
           <p className="text-sm text-muted-foreground">
             {isMaster
               ? `${properties.length} properties across all owners`
-              : `${properties.length} property${properties.length !== 1 ? "ies" : "y"} registered`
-            }
+              : `${properties.length} property${properties.length !== 1 ? "ies" : "y"} registered`}
           </p>
         </div>
         {!isMaster && (
-          <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditing(null); }}>
-            <DialogTrigger asChild>
-              <Button className="bg-primary hover:bg-primary/90"><Plus className="mr-1 h-4 w-4" />Add Property</Button>
-            </DialogTrigger>
-            <PropertyDialog
-              key={editing?.id ?? "new"}
-              editing={editing}
-              userId={user?.id}
-              onClose={() => { setOpen(false); setEditing(null); qc.invalidateQueries({ queryKey: ["properties"] }); }}
-            />
-          </Dialog>
+          <div className="flex flex-wrap gap-2">
+            <Dialog
+              open={open}
+              onOpenChange={(v) => {
+                setOpen(v);
+                if (!v) setEditing(null);
+              }}
+            >
+              <DialogTrigger asChild>
+                <Button className="bg-primary hover:bg-primary/90">
+                  <Plus className="mr-1 h-4 w-4" />
+                  Apartments
+                </Button>
+              </DialogTrigger>
+              <PropertyDialog
+                key={editing?.id ?? "new"}
+                editing={editing}
+                userId={user?.id}
+                onClose={() => {
+                  setOpen(false);
+                  setEditing(null);
+                  qc.invalidateQueries({ queryKey: ["properties"] });
+                  qc.invalidateQueries({ queryKey: ["admin-dashboard"] });
+                  qc.invalidateQueries({ queryKey: ["apartment-names"] });
+                }}
+              />
+            </Dialog>
+            <Button
+              variant="outline"
+              onClick={() => toast.info("Villas — feature rolling out soon...")}
+            >
+              <Plus className="mr-1 h-4 w-4" />
+              Villas
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => toast.info("Standalone Building — feature rolling out soon...")}
+            >
+              <Plus className="mr-1 h-4 w-4" />
+              Standalone Building
+            </Button>
+          </div>
         )}
       </div>
 
@@ -141,17 +209,30 @@ function PropertiesPage() {
         <div className="grid gap-3 md:grid-cols-4">
           <div className="relative md:col-span-2">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input className="pl-9" placeholder="Search by property name, unit, or tenant" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <Input
+              className="pl-9"
+              placeholder="Search by property name, unit, or tenant"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
           </div>
           <Select value={type} onValueChange={setType}>
-            <SelectTrigger><SelectValue placeholder="Type" /></SelectTrigger>
+            <SelectTrigger>
+              <SelectValue placeholder="Type" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All types</SelectItem>
-              {UNIT_TYPES.map((t) => (<SelectItem key={t} value={t}>{t}</SelectItem>))}
+              {UNIT_TYPES.map((t) => (
+                <SelectItem key={t} value={t}>
+                  {t}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
+            <SelectTrigger>
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All status</SelectItem>
               <SelectItem value="sold">Occupied</SelectItem>
@@ -168,8 +249,7 @@ function PropertiesPage() {
         <Card className="p-12 text-center text-sm text-muted-foreground">
           {isMaster
             ? "No properties found."
-            : "No properties yet. Click Add Property to register one."
-          }
+            : "No properties yet. Click \"+ Apartments\" to register one."}
         </Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -185,7 +265,9 @@ function PropertiesPage() {
                     {p.unit_no} · Floor {p.floor}
                   </div>
                 </div>
-                <StatusBadge status={!p.owner_name ? "Vacant" : p.billing_enabled ? "Active" : "Waiver Period"} />
+                <StatusBadge
+                  status={!p.owner_name ? "Vacant" : p.billing_enabled ? "Occupied" : "Waiver Period"}
+                />
               </div>
 
               <div className="space-y-2 px-4 py-3 text-sm">
@@ -194,7 +276,7 @@ function PropertiesPage() {
                   <span className="font-medium">{p.type}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Monthly Rent</span>
+                  <span className="text-muted-foreground">Monthly Charges</span>
                   <span className="inline-flex items-center gap-1 font-semibold">
                     <IndianRupee className="h-3.5 w-3.5 text-muted-foreground" />
                     {p.monthly_rent.toLocaleString("en-IN")}
@@ -220,18 +302,29 @@ function PropertiesPage() {
                   </div>
                 )}
                 {p.description && (
-                  <div className="border-t pt-2 text-xs text-muted-foreground">
-                    {p.description}
-                  </div>
+                  <div className="border-t pt-2 text-xs text-muted-foreground">{p.description}</div>
                 )}
               </div>
 
               {!isMaster && (
                 <div className="flex border-t">
-                  <Button variant="ghost" size="sm" className="flex-1 rounded-none" onClick={() => { setEditing(p); setOpen(true); }}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="flex-1 rounded-none"
+                    onClick={() => {
+                      setEditing(p);
+                      setOpen(true);
+                    }}
+                  >
                     <Pencil className="mr-1 h-3.5 w-3.5" /> Edit
                   </Button>
-                  <Button variant="ghost" size="sm" className="flex-1 rounded-none text-destructive hover:text-destructive" onClick={() => setDeleteConfirm({ unitId: p.id, unitNo: p.unit_no })}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="flex-1 rounded-none text-destructive hover:text-destructive"
+                    onClick={() => setDeleteConfirm({ unitId: p.id, unitNo: p.unit_no, ownerName: p.owner_name })}
+                  >
                     <Trash2 className="mr-1 h-3.5 w-3.5" /> Delete
                   </Button>
                 </div>
@@ -247,12 +340,20 @@ function PropertiesPage() {
             <DialogTitle>Delete Property</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Are you sure you want to delete the property <strong>{deleteConfirm?.unitNo}</strong>?
-            This will permanently remove the tenant's login access and profile.
+            Are you sure you want to permanently delete property{" "}
+            <strong>{deleteConfirm?.unitNo}</strong>?
           </p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteConfirm(null)}>Cancel</Button>
-            <Button variant="destructive" onClick={() => deleteConfirm && handleDelete(deleteConfirm.unitId)}>
+            <Button variant="outline" onClick={() => setDeleteConfirm(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() =>
+                deleteConfirm &&
+                handleDelete(deleteConfirm.unitId, deleteConfirm.ownerName)
+              }
+            >
               Delete
             </Button>
           </DialogFooter>
@@ -262,7 +363,15 @@ function PropertiesPage() {
   );
 }
 
-function PropertyDialog({ editing, userId, onClose }: { editing: Property | null; userId?: string; onClose: () => void }) {
+function PropertyDialog({
+  editing,
+  userId,
+  onClose,
+}: {
+  editing: Property | null;
+  userId?: string;
+  onClose: () => void;
+}) {
   const [form, setForm] = useState({
     property_name: editing?.property_name ?? "",
     unit_no: editing?.unit_no ?? "",
@@ -274,6 +383,19 @@ function PropertyDialog({ editing, userId, onClose }: { editing: Property | null
     area_sqft: editing?.area_sqft?.toString() ?? "",
   });
   const [busy, setBusy] = useState(false);
+  const [showNewNameInput, setShowNewNameInput] = useState(false);
+
+  const { data: existingNames = [] } = useQuery({
+    queryKey: ["apartment-names"],
+    queryFn: async () => {
+      const { data, error } = await db.from("units").select("property_name").not("property_name", "is", null);
+      if (error) throw error;
+      const names = (data as { property_name: string }[])
+        .map((r) => r.property_name?.trim())
+        .filter(Boolean);
+      return [...new Set(names)].sort();
+    },
+  });
 
   async function save() {
     setBusy(true);
@@ -286,22 +408,27 @@ function PropertyDialog({ editing, userId, onClose }: { editing: Property | null
       status: form.status,
       description: form.description.trim() || null,
       area_sqft: form.area_sqft ? parseInt(form.area_sqft) : null,
-      billing_enabled: false,
       ...(userId ? { owner_user_id: userId } : {}),
     };
 
     if (editing) {
-      const { error } = await supabase.from("units").update(payload).eq("id", editing.id);
+      const { error } = await db.from("units").update(payload).eq("id", editing.id);
       setBusy(false);
-      if (error) { toast.error(error.message); return; }
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
       toast.success("Property updated");
       onClose();
       return;
     }
 
-    const { error } = await supabase.from("units").insert(payload);
+    const { error } = await db.from("units").insert(payload);
     setBusy(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
 
     toast.success("Property created");
     onClose();
@@ -310,43 +437,113 @@ function PropertyDialog({ editing, userId, onClose }: { editing: Property | null
   return (
     <DialogContent className="max-w-2xl">
       <DialogHeader>
-        <DialogTitle>{editing ? `Edit ${editing.property_name || editing.unit_no}` : "Add New Property"}</DialogTitle>
+        <DialogTitle>
+          {editing ? `Edit ${editing.property_name || editing.unit_no}` : "Add New Apartment"}
+        </DialogTitle>
       </DialogHeader>
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2 md:col-span-2">
-          <Label>Property name</Label>
-          <Input value={form.property_name} onChange={(e) => setForm({ ...form, property_name: e.target.value })} placeholder="e.g. My Ocean View Apartment" />
+          <Label>Apartment Name</Label>
+          {showNewNameInput ? (
+            <div className="flex gap-2">
+              <Input
+                value={form.property_name}
+                onChange={(e) => setForm({ ...form, property_name: e.target.value })}
+                placeholder="New apartment name"
+              />
+              <Button variant="outline" size="sm" onClick={() => setShowNewNameInput(false)}>
+                Cancel
+              </Button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <Select
+                value={form.property_name}
+                onValueChange={(v) => {
+                  if (v === "__add__") {
+                    setShowNewNameInput(true);
+                    setForm({ ...form, property_name: "" });
+                  } else {
+                    setForm({ ...form, property_name: v });
+                  }
+                }}
+              >
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="Select apartment" />
+                </SelectTrigger>
+                <SelectContent>
+                  {existingNames.map((name: string) => (
+                    <SelectItem key={name} value={name}>
+                      {name}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="__add__">+ Add New</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
         <div className="space-y-2">
-          <Label>Unit number</Label>
-          <Input value={form.unit_no} onChange={(e) => setForm({ ...form, unit_no: e.target.value })} placeholder="e.g. C101" />
+          <Label>Flat Number</Label>
+          <Input
+            value={form.unit_no}
+            onChange={(e) => setForm({ ...form, unit_no: e.target.value })}
+            placeholder="e.g. C101"
+          />
         </div>
         <div className="space-y-2">
           <Label>Floor</Label>
-          <Input type="number" min={0} max={14} value={form.floor} onChange={(e) => setForm({ ...form, floor: Number(e.target.value) })} />
+          <Input
+            type="number"
+            min={0}
+            max={14}
+            value={form.floor}
+            onChange={(e) => setForm({ ...form, floor: Number(e.target.value) })}
+          />
         </div>
         <div className="space-y-2">
           <Label>Type</Label>
           <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
-              {UNIT_TYPES.map((t) => (<SelectItem key={t} value={t}>{t}</SelectItem>))}
+              {UNIT_TYPES.map((t) => (
+                <SelectItem key={t} value={t}>
+                  {t}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
         <div className="space-y-2">
-          <Label>Monthly rent (₹)</Label>
-          <Input type="number" min={0} step={100} value={form.monthly_rent} onChange={(e) => setForm({ ...form, monthly_rent: e.target.value })} placeholder="e.g. 15000" />
+          <Label>Monthly Charges (₹)</Label>
+          <Input
+            type="number"
+            min={0}
+            step={100}
+            value={form.monthly_rent}
+            onChange={(e) => setForm({ ...form, monthly_rent: e.target.value })}
+            placeholder="e.g. 15000"
+          />
         </div>
         <div className="space-y-2">
           <Label>Area (sq.ft)</Label>
-          <Input type="number" min={0} value={form.area_sqft} onChange={(e) => setForm({ ...form, area_sqft: e.target.value })} placeholder="e.g. 1200" />
+          <Input
+            type="number"
+            min={0}
+            value={form.area_sqft}
+            onChange={(e) => setForm({ ...form, area_sqft: e.target.value })}
+            placeholder="e.g. 1200"
+          />
         </div>
         <div className="space-y-2">
           <Label>Status</Label>
           <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="sold">Occupied</SelectItem>
               <SelectItem value="vacant">Vacant</SelectItem>
@@ -356,12 +553,18 @@ function PropertyDialog({ editing, userId, onClose }: { editing: Property | null
         </div>
         <div className="space-y-2 md:col-span-2">
           <Label>Description</Label>
-          <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Brief description of the property" />
+          <Input
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            placeholder="Brief description of the property"
+          />
         </div>
       </div>
 
       <DialogFooter>
-        <Button variant="outline" onClick={onClose}>Cancel</Button>
+        <Button variant="outline" onClick={onClose}>
+          Cancel
+        </Button>
         <Button onClick={save} disabled={busy} className="bg-primary hover:bg-primary/90">
           {busy ? "Saving…" : editing ? "Save changes" : "Create property"}
         </Button>

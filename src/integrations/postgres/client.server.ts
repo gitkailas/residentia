@@ -34,7 +34,13 @@ export function createJwt(payload: { sub: string; email: string; role: string | 
 }
 
 export function verifyJwt(token: string) {
-  return jwt.verify(token, jwtSecret) as { sub: string; email: string; role: string | null; exp: number; iat: number };
+  return jwt.verify(token, jwtSecret) as {
+    sub: string;
+    email: string;
+    role: string | null;
+    exp: number;
+    iat: number;
+  };
 }
 
 export async function getUserByEmail(email: string) {

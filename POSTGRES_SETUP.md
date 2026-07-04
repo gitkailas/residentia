@@ -7,6 +7,7 @@ Residentia has been successfully migrated from Supabase to a pure PostgreSQL bac
 ## Database Setup Status ✅
 
 ### Connection Details
+
 - **Host:** localhost
 - **Port:** 5432
 - **Database:** residentia
@@ -16,18 +17,19 @@ Residentia has been successfully migrated from Supabase to a pure PostgreSQL bac
 
 ### Database Tables Created
 
-| Table | Purpose | Status |
-|-------|---------|--------|
-| `users` | User authentication with passwords and roles | ✅ Ready |
-| `user_roles` | Role-based access control (master_admin/owner/resident) | ✅ Ready |
-| `units` | Apartment unit information and details | ✅ Ready |
-| `billing_cycles` | Monthly billing periods | ✅ Ready |
-| `payments` | Payment records and transactions | ✅ Ready |
-| `queries` | Support tickets from residents | ✅ Ready |
-| `waivers` | Payment waivers for units | ✅ Ready |
-| `announcements` | Community announcements | ✅ Ready |
+| Table            | Purpose                                                 | Status   |
+| ---------------- | ------------------------------------------------------- | -------- |
+| `users`          | User authentication with passwords and roles            | ✅ Ready |
+| `user_roles`     | Role-based access control (master_admin/owner/resident) | ✅ Ready |
+| `units`          | Apartment unit information and details                  | ✅ Ready |
+| `billing_cycles` | Monthly billing periods                                 | ✅ Ready |
+| `payments`       | Payment records and transactions                        | ✅ Ready |
+| `queries`        | Support tickets from residents                          | ✅ Ready |
+| `waivers`        | Payment waivers for units                               | ✅ Ready |
+| `announcements`  | Community announcements                                 | ✅ Ready |
 
 All tables have been created with:
+
 - UUID primary keys
 - Timestamps (created_at, updated_at)
 - Appropriate indexes for performance
@@ -77,6 +79,7 @@ Return JSON response to client
 ### Authentication
 
 **POST /api/auth/login**
+
 ```json
 Request:
 {
@@ -123,16 +126,18 @@ Request:
 #### Example Queries
 
 **Fetch all units:**
+
 ```json
 {
   "op": "select",
   "table": "units",
   "select": "*",
-  "order": [{"column": "floor"}, {"column": "unit_no"}]
+  "order": [{ "column": "floor" }, { "column": "unit_no" }]
 }
 ```
 
 **Create a payment:**
+
 ```json
 {
   "op": "insert",
@@ -147,6 +152,7 @@ Request:
 ```
 
 **Update a query status:**
+
 ```json
 {
   "op": "update",
@@ -155,17 +161,18 @@ Request:
     "status": "resolved",
     "admin_reply": "Issue has been resolved"
   },
-  "filters": [{"type": "eq", "column": "id", "value": "uuid"}]
+  "filters": [{ "type": "eq", "column": "id", "value": "uuid" }]
 }
 ```
 
 **Fetch with relationships (nested data):**
+
 ```json
 {
   "op": "select",
   "table": "payments",
   "select": "*, units(unit_no, owner_name)",
-  "order": [{"column": "created_at", "ascending": false}]
+  "order": [{ "column": "created_at", "ascending": false }]
 }
 ```
 
@@ -215,6 +222,7 @@ npm run dev
 ```
 
 The app will:
+
 - Connect to local PostgreSQL
 - Start the Vite dev server
 - Make API calls through `/api/db` and `/api/auth/login`
@@ -240,16 +248,19 @@ $env:PGPASSWORD = 'ResidentiaPass123!'
 ## Test Credentials
 
 ### Master Admin
+
 - **Email:** master@residentia.local
 - **Password:** master@123
 - **Role:** master_admin
 
 ### Resident User
+
 - **Email:** resident@residentia.local
 - **Password:** resident@123
 - **Role:** resident
 
 ### Sample Data
+
 - 7 apartment units (A101-B102)
 - 6 billing cycles for June 2026
 - 2 payment records
@@ -260,16 +271,19 @@ $env:PGPASSWORD = 'ResidentiaPass123!'
 ## Security Considerations
 
 ### Authentication
+
 - Passwords hashed with bcryptjs (10 salt rounds)
 - JWT tokens expire after 7 days
 - Bearer tokens required for all API requests
 
 ### Database
+
 - Role-based access control (RBAC)
 - SQL injection prevented using parameterized queries
 - All sensitive operations require JWT verification
 
 ### API
+
 - CORS enabled for localhost
 - Content-Type validation (application/json)
 - Rate limiting recommended for production
@@ -277,6 +291,7 @@ $env:PGPASSWORD = 'ResidentiaPass123!'
 ## Migration from Supabase
 
 The app maintains the same Supabase JS API surface through a compatibility shim:
+
 - `supabase.auth.signInWithPassword()` → `/api/auth/login`
 - `supabase.from(table).select()` → `/api/db` with SELECT operation
 - `supabase.from(table).insert()` → `/api/db` with INSERT operation
@@ -285,16 +300,19 @@ The app maintains the same Supabase JS API surface through a compatibility shim:
 ## Troubleshooting
 
 ### Connection Errors
+
 - Verify PostgreSQL service is running
 - Check DATABASE_URL in .env
 - Confirm residentia_user credentials
 
 ### Authentication Fails
+
 - Verify JWT_SECRET in .env
 - Check if user exists in users table
 - Confirm password hash is correct
 
 ### API Returns 401
+
 - Ensure token is included in Authorization header
 - Verify token hasn't expired
 - Check JWT_SECRET matches between client and server
@@ -314,6 +332,7 @@ The app maintains the same Supabase JS API surface through a compatibility shim:
 ## Support
 
 For issues or questions:
+
 1. Check PostgreSQL service status
 2. Verify .env configuration
 3. Review server logs for error details

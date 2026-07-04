@@ -198,7 +198,9 @@ export async function handleDbRequest(request: Request) {
   };
 
   if (!op || !table) {
-    return new Response(JSON.stringify({ error: { message: "Missing op or table" } }), { status: 400 });
+    return new Response(JSON.stringify({ error: { message: "Missing op or table" } }), {
+      status: 400,
+    });
   }
 
   const tokenClaims = await verifyRequestToken(request);
@@ -229,30 +231,41 @@ export async function handleDbRequest(request: Request) {
     }
     const columns = Object.keys(rows[0]);
     const placeholders = rows
-      .map((row, rowIndex) => `(${columns.map((_, colIndex) => `$${rowIndex * columns.length + colIndex + 1}`).join(", ")})`)
+      .map(
+        (row, rowIndex) =>
+          `(${columns.map((_, colIndex) => `$${rowIndex * columns.length + colIndex + 1}`).join(", ")})`,
+      )
       .join(", ");
     values.push(...rows.flatMap((row) => columns.map((column) => (row as any)[column])));
     sql = `INSERT INTO public.${table} (${columns.join(", ")}) VALUES ${placeholders} RETURNING *`;
   } else if (op === "update") {
     if (!data || typeof data !== "object") {
-      return new Response(JSON.stringify({ error: { message: "Missing update data" } }), { status: 400 });
+      return new Response(JSON.stringify({ error: { message: "Missing update data" } }), {
+        status: 400,
+      });
     }
     const columns = Object.keys(data);
     if (!columns.length) {
-      return new Response(JSON.stringify({ error: { message: "Nothing to update" } }), { status: 400 });
+      return new Response(JSON.stringify({ error: { message: "Nothing to update" } }), {
+        status: 400,
+      });
     }
     const setClause = columns.map((column, index) => `${column} = $${index + 1}`).join(", ");
     values.push(...columns.map((column) => (data as any)[column]));
     const { clause, values: whereValues } = buildWhere(filters, columns.length + 1);
     if (!clause) {
-      return new Response(JSON.stringify({ error: { message: "Update requires a filter" } }), { status: 400 });
+      return new Response(JSON.stringify({ error: { message: "Update requires a filter" } }), {
+        status: 400,
+      });
     }
     values.push(...whereValues);
     sql = `UPDATE public.${table} t SET ${setClause} WHERE ${clause} RETURNING *`;
   } else if (op === "delete") {
     const { clause, values: whereValues } = buildWhere(filters);
     if (!clause) {
-      return new Response(JSON.stringify({ error: { message: "Delete requires a filter" } }), { status: 400 });
+      return new Response(JSON.stringify({ error: { message: "Delete requires a filter" } }), {
+        status: 400,
+      });
     }
     values.push(...whereValues);
     sql = `DELETE FROM public.${table} t WHERE ${clause} RETURNING *`;
@@ -262,18 +275,26 @@ export async function handleDbRequest(request: Request) {
       return new Response(JSON.stringify({ data: [] }));
     }
     if (!conflict) {
-      return new Response(JSON.stringify({ error: { message: "Upsert requires onConflict key" } }), { status: 400 });
+      return new Response(
+        JSON.stringify({ error: { message: "Upsert requires onConflict key" } }),
+        { status: 400 },
+      );
     }
     const columns = Object.keys(rows[0]);
     const insertPlaceholders = rows
-      .map((row, rowIndex) => `(${columns.map((_, colIndex) => `$${rowIndex * columns.length + colIndex + 1}`).join(", ")})`)
+      .map(
+        (row, rowIndex) =>
+          `(${columns.map((_, colIndex) => `$${rowIndex * columns.length + colIndex + 1}`).join(", ")})`,
+      )
       .join(", ");
     values.push(...rows.flatMap((row) => columns.map((column) => (row as any)[column])));
     const updateColumns = columns.filter((column) => column !== conflict);
     const updateClause = updateColumns.map((column) => `${column} = EXCLUDED.${column}`).join(", ");
     sql = `INSERT INTO public.${table} (${columns.join(", ")}) VALUES ${insertPlaceholders} ON CONFLICT (${conflict}) DO UPDATE SET ${updateClause} RETURNING *`;
   } else {
-    return new Response(JSON.stringify({ error: { message: `Unsupported operation '${op}'` } }), { status: 400 });
+    return new Response(JSON.stringify({ error: { message: `Unsupported operation '${op}'` } }), {
+      status: 400,
+    });
   }
 
   try {
@@ -285,27 +306,38 @@ export async function handleDbRequest(request: Request) {
       rows = normalizeRows(rows);
       if (single) {
         if (rows.length !== 1) {
-          return new Response(JSON.stringify({ error: { message: "Expected a single row" } }), { status: 400 });
+          return new Response(JSON.stringify({ error: { message: "Expected a single row" } }), {
+            status: 400,
+          });
         }
         return new Response(JSON.stringify({ data: rows[0] }), { status: 200 });
       }
       if (maybeSingle) {
-        return new Response(JSON.stringify({ data: rows.length > 0 ? rows[0] : null }), { status: 200 });
+        return new Response(JSON.stringify({ data: rows.length > 0 ? rows[0] : null }), {
+          status: 200,
+        });
       }
       return new Response(JSON.stringify({ data: rows }), { status: 200 });
     }
     if (single) {
       if (rows.length !== 1) {
-        return new Response(JSON.stringify({ error: { message: "Expected a single row" } }), { status: 400 });
+        return new Response(JSON.stringify({ error: { message: "Expected a single row" } }), {
+          status: 400,
+        });
       }
       return new Response(JSON.stringify({ data: rows[0] }), { status: 200 });
     }
     if (maybeSingle) {
-      return new Response(JSON.stringify({ data: rows.length > 0 ? rows[0] : null }), { status: 200 });
+      return new Response(JSON.stringify({ data: rows.length > 0 ? rows[0] : null }), {
+        status: 200,
+      });
     }
     return new Response(JSON.stringify({ data: rows }), { status: 200 });
   } catch (error: unknown) {
     console.error(`[DB] Error on ${op.toUpperCase()} table ${table}:`, error);
-    return new Response(JSON.stringify({ error: { message: (error as Error).message || "Database error" } }), { status: 500 });
+    return new Response(
+      JSON.stringify({ error: { message: (error as Error).message || "Database error" } }),
+      { status: 500 },
+    );
   }
 }

@@ -39,7 +39,7 @@ function DefaultersPage() {
     for (const c of data.cycles) {
       if (c.is_waiver_period) continue;
       const paid = paidByCycle.get(c.id) ?? 0;
-      const due = Number(c.total_due) - paid;
+      const due = (Number(c.total_due) || 0) - paid;
       if (due <= 0) continue;
       const e = byUnit.get(c.unit_id) ?? {
         outstanding: 0,
@@ -60,7 +60,7 @@ function DefaultersPage() {
       .sort((a: any, b: any) => b.outstanding - a.outstanding);
   }, [data]);
 
-  const totalOutstanding = rows.reduce((s: number, r: any) => s + r.outstanding, 0);
+  const totalOutstanding = rows.reduce((s: number, r: any) => s + (Number(r.outstanding) || 0), 0);
 
   function exportCsv() {
     const lines = ["Unit,Floor,Type,Owner,Months Due,Outstanding"];

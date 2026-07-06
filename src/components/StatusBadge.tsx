@@ -19,6 +19,7 @@ const map: Record<string, string> = {
   "WAIVER PERIOD": "bg-status-waiver text-white",
   "ADVANCE PAID": "bg-status-advance text-white",
   "PENDING VERIFICATION": "bg-muted text-foreground",
+  REJECTED: "bg-status-unpaid text-white",
   Active: "bg-status-paid text-white",
   Occupied: "bg-status-paid text-white",
   "Waiver Period": "bg-status-waiver text-white",

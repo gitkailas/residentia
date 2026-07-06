@@ -35,16 +35,13 @@ function PaymentsPage() {
 
         const { data: p } = await db
           .from("payments")
-          .select("*, billing_cycles!inner(month, year)")
+          .select("*, billing_cycles(month, year)")
           .eq("unit_id", profile.unit_id)
           .order("created_at", { ascending: false });
         payments = p ?? [];
       }
 
-      const totalPaid = payments.reduce((s: number, p: any) => s + Number(p.total_paid ?? 0), 0);
-      const totalBalance = payments.reduce((s: number, p: any) => s + Number(p.balance ?? 0), 0);
-
-      return { cycles, payments, totalPaid, totalBalance, hasUnit: !!profile?.unit_id };
+      return { cycles, payments, hasUnit: !!profile?.unit_id };
     },
   });
 
@@ -61,75 +58,76 @@ function PaymentsPage() {
     );
   }
 
-  const payByCycle = new Map(data.payments.map((p: any) => [p.billing_cycle_id, p]));
+  const paidCycleIds = new Set(data.payments.map((p: any) => p.billing_cycle_id));
+  const unpaidCycles = data.cycles.filter((c: any) => !paidCycleIds.has(c.id) && !c.is_waiver_period);
 
   return (
     <div className="space-y-5">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Payment History</h1>
         <p className="text-sm text-muted-foreground">
-          Monthly breakdown of your maintenance payments.
+          All payment records for your unit.
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <Card className="border-status-paid/30 bg-status-paid/5 p-4">
-          <div className="text-xs uppercase tracking-wider text-status-paid">Total Paid</div>
-          <div className="mt-1 text-xl font-bold text-status-paid">{inr(data.totalPaid)}</div>
-        </Card>
-        <Card className="border-status-unpaid/30 bg-status-unpaid/5 p-4">
-          <div className="text-xs uppercase tracking-wider text-status-unpaid">Outstanding</div>
-          <div className="mt-1 text-xl font-bold text-status-unpaid">{inr(data.totalBalance)}</div>
-        </Card>
-      </div>
-
-      {data.cycles.length === 0 ? (
+      {data.payments.length === 0 && unpaidCycles.length === 0 ? (
         <Card className="p-12 text-center text-sm text-muted-foreground">
           No billing cycles found for your unit.
         </Card>
       ) : (
         <div className="space-y-2">
-          {data.cycles.map((cycle: any) => {
-            const pay = payByCycle.get(cycle.id);
-            const status = pay?.status ?? (cycle.is_waiver_period ? "WAIVER PERIOD" : "UNPAID");
-            return (
-              <Card key={cycle.id} className="p-4">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="font-semibold">
-                      {cycle.month} {cycle.year}
+          {data.payments.map((p: any) => (
+            <Card key={p.id} className="p-4">
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="font-semibold">
+                    {p.billing_cycles?.month} {p.billing_cycles?.year}
+                  </div>
+                  <div className="mt-1 space-y-0.5 text-sm text-muted-foreground">
+                    <div>
+                      Paid:{" "}
+                      <span className="font-medium text-foreground">{inr(p.total_paid)}</span>
                     </div>
-                    <div className="mt-1 space-y-0.5 text-sm text-muted-foreground">
+                    <div>
+                      Balance:{" "}
+                      <span className="font-medium text-foreground">{inr(p.balance)}</span>
+                    </div>
+                    {p.payment_mode && (
                       <div>
-                        Due:{" "}
-                        <span className="font-medium text-foreground">{inr(cycle.total_due)}</span>
+                        Mode: {p.payment_mode}
+                        {p.reference_no ? ` · ${p.reference_no}` : ""}
                       </div>
-                      <div>
-                        Paid:{" "}
-                        <span className="font-medium text-foreground">
-                          {inr(pay?.total_paid ?? 0)}
-                        </span>
+                    )}
+                    {p.payment_date && <div>Date: {formatDate(p.payment_date)}</div>}
+                    {p.rejection_reason && (
+                      <div className="mt-1 rounded-md bg-status-unpaid/10 px-2 py-1 text-xs text-status-unpaid">
+                        Rejected: {p.rejection_reason}
                       </div>
-                      {pay && (
-                        <div>
-                          Balance:{" "}
-                          <span className="font-medium text-foreground">{inr(pay.balance)}</span>
-                        </div>
-                      )}
-                      {pay?.payment_mode && (
-                        <div>
-                          Mode: {pay.payment_mode}
-                          {pay.reference_no ? ` · ${pay.reference_no}` : ""}
-                        </div>
-                      )}
-                      {pay?.payment_date && <div>Date: {formatDate(pay.payment_date)}</div>}
+                    )}
+                  </div>
+                </div>
+                <StatusBadge status={p.status} />
+              </div>
+            </Card>
+          ))}
+          {unpaidCycles.map((c: any) => (
+            <Card key={c.id} className="p-4">
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="font-semibold">
+                    {c.month} {c.year}
+                  </div>
+                  <div className="mt-1 space-y-0.5 text-sm text-muted-foreground">
+                    <div>
+                      Due:{" "}
+                      <span className="font-medium text-foreground">{inr(c.total_due)}</span>
                     </div>
                   </div>
-                  <StatusBadge status={status} />
                 </div>
-              </Card>
-            );
-          })}
+                <StatusBadge status="UNPAID" />
+              </div>
+            </Card>
+          ))}
         </div>
       )}
     </div>

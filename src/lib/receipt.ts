@@ -11,6 +11,7 @@ export interface ReceiptInput {
   year: number | string;
   amountMaintenance: number;
   amountGarbage: number;
+  amountRent: number;
   totalPaid: number;
   balance: number;
   paymentDate: string;
@@ -63,6 +64,7 @@ export function generateReceiptPDF(r: ReceiptInput) {
     body: [
       ["Maintenance charges", inr(r.amountMaintenance)],
       ["Garbage collection", inr(r.amountGarbage)],
+      ...(r.amountRent > 0 ? [["Rent", inr(r.amountRent)] as [string, string]] : []),
       [
         { content: "Total Paid", styles: { fontStyle: "bold" } },
         { content: inr(r.totalPaid), styles: { fontStyle: "bold" } },

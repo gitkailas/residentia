@@ -19,6 +19,7 @@ import { Route as ResidentProfileRouteImport } from './routes/resident.profile'
 import { Route as ResidentPaymentsRouteImport } from './routes/resident.payments'
 import { Route as ResidentHomeRouteImport } from './routes/resident.home'
 import { Route as AdminWaiversRouteImport } from './routes/admin.waivers'
+import { Route as AdminVerificationRouteImport } from './routes/admin.verification'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminUnitsRouteImport } from './routes/admin.units'
 import { Route as AdminQueriesRouteImport } from './routes/admin.queries'
@@ -78,6 +79,11 @@ const ResidentHomeRoute = ResidentHomeRouteImport.update({
 const AdminWaiversRoute = AdminWaiversRouteImport.update({
   id: '/waivers',
   path: '/waivers',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminVerificationRoute = AdminVerificationRouteImport.update({
+  id: '/verification',
+  path: '/verification',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminUsersRoute = AdminUsersRouteImport.update({
@@ -146,6 +152,7 @@ export interface FileRoutesByFullPath {
   '/admin/queries': typeof AdminQueriesRoute
   '/admin/units': typeof AdminUnitsRoute
   '/admin/users': typeof AdminUsersRoute
+  '/admin/verification': typeof AdminVerificationRoute
   '/admin/waivers': typeof AdminWaiversRoute
   '/resident/home': typeof ResidentHomeRoute
   '/resident/payments': typeof ResidentPaymentsRoute
@@ -168,6 +175,7 @@ export interface FileRoutesByTo {
   '/admin/queries': typeof AdminQueriesRoute
   '/admin/units': typeof AdminUnitsRoute
   '/admin/users': typeof AdminUsersRoute
+  '/admin/verification': typeof AdminVerificationRoute
   '/admin/waivers': typeof AdminWaiversRoute
   '/resident/home': typeof ResidentHomeRoute
   '/resident/payments': typeof ResidentPaymentsRoute
@@ -191,6 +199,7 @@ export interface FileRoutesById {
   '/admin/queries': typeof AdminQueriesRoute
   '/admin/units': typeof AdminUnitsRoute
   '/admin/users': typeof AdminUsersRoute
+  '/admin/verification': typeof AdminVerificationRoute
   '/admin/waivers': typeof AdminWaiversRoute
   '/resident/home': typeof ResidentHomeRoute
   '/resident/payments': typeof ResidentPaymentsRoute
@@ -215,6 +224,7 @@ export interface FileRouteTypes {
     | '/admin/queries'
     | '/admin/units'
     | '/admin/users'
+    | '/admin/verification'
     | '/admin/waivers'
     | '/resident/home'
     | '/resident/payments'
@@ -237,6 +247,7 @@ export interface FileRouteTypes {
     | '/admin/queries'
     | '/admin/units'
     | '/admin/users'
+    | '/admin/verification'
     | '/admin/waivers'
     | '/resident/home'
     | '/resident/payments'
@@ -259,6 +270,7 @@ export interface FileRouteTypes {
     | '/admin/queries'
     | '/admin/units'
     | '/admin/users'
+    | '/admin/verification'
     | '/admin/waivers'
     | '/resident/home'
     | '/resident/payments'
@@ -346,6 +358,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminWaiversRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/verification': {
+      id: '/admin/verification'
+      path: '/verification'
+      fullPath: '/admin/verification'
+      preLoaderRoute: typeof AdminVerificationRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/users': {
       id: '/admin/users'
       path: '/users'
@@ -430,6 +449,7 @@ interface AdminRouteChildren {
   AdminQueriesRoute: typeof AdminQueriesRoute
   AdminUnitsRoute: typeof AdminUnitsRoute
   AdminUsersRoute: typeof AdminUsersRoute
+  AdminVerificationRoute: typeof AdminVerificationRoute
   AdminWaiversRoute: typeof AdminWaiversRoute
 }
 
@@ -444,6 +464,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminQueriesRoute: AdminQueriesRoute,
   AdminUnitsRoute: AdminUnitsRoute,
   AdminUsersRoute: AdminUsersRoute,
+  AdminVerificationRoute: AdminVerificationRoute,
   AdminWaiversRoute: AdminWaiversRoute,
 }
 

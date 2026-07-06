@@ -1,13 +1,14 @@
 import { createFileRoute, Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { Brand } from "@/components/Brand";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { db } from "@/integrations/db/client";
 import {
   LayoutDashboard,
   Building2,
-  Receipt,
   BookOpenCheck,
   LogOut,
   Menu,
@@ -29,7 +30,6 @@ const BASE_NAV = [
   { to: "/admin/properties", label: "Properties", icon: Building2 },
   { to: "/admin/units", label: "Units & Tenants", icon: Users },
   { to: "/admin/billing", label: "Billing Generator", icon: CalendarPlus },
-  { to: "/admin/payments", label: "Payment Entry", icon: Receipt },
   { to: "/admin/ledger", label: "Ledger", icon: BookOpenCheck },
   { to: "/admin/defaulters", label: "Defaulters", icon: AlertTriangle },
   { to: "/admin/waivers", label: "Waivers", icon: BadgePercent },
@@ -47,6 +47,18 @@ function AdminLayout() {
   const isMaster = role === "master_admin";
 
   const NAV = isMaster ? [...BASE_NAV, ...MASTER_ONLY_NAV] : BASE_NAV;
+
+  const { data: pendingCount = 0 } = useQuery({
+    queryKey: ["pending-verification-count"],
+    queryFn: async () => {
+      const { data } = await db
+        .from("payments")
+        .select("id")
+        .eq("status", "PENDING VERIFICATION");
+      return (data ?? []).length;
+    },
+    refetchInterval: 30_000,
+  });
 
   useEffect(() => {
     setOpen(false);
@@ -96,6 +108,7 @@ function AdminLayout() {
           {NAV.map((n) => {
             const active = loc.pathname.startsWith(n.to);
             const Icon = n.icon;
+            const isLedger = n.to === "/admin/ledger";
             return (
               <Link
                 key={n.to}
@@ -108,7 +121,12 @@ function AdminLayout() {
                 )}
               >
                 <Icon className="h-4 w-4" />
-                {n.label}
+                <span className="flex-1">{n.label}</span>
+                {isLedger && pendingCount > 0 && (
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-status-unpaid px-1.5 text-[11px] font-bold text-white">
+                    {pendingCount}
+                  </span>
+                )}
               </Link>
             );
           })}

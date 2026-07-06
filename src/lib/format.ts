@@ -1,5 +1,7 @@
-export const inr = (n: number | null | undefined) =>
-  `₹${(Number(n ?? 0)).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+export const inr = (n: number | string | null | undefined) => {
+  const num = Number(n);
+  return `₹${(Number.isNaN(num) ? 0 : num).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+};
 
 export const formatDate = (d: string | Date | null | undefined) => {
   if (!d) return "—";

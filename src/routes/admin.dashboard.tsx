@@ -19,11 +19,9 @@ import {
 } from "recharts";
 import {
   Building2,
-  Coins,
-  AlertTriangle,
   BadgeCheck,
   CalendarClock,
-  TrendingUp,
+  Users,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin/dashboard")({
@@ -95,10 +93,11 @@ function Dashboard() {
         .eq("year", year);
       let paymentsQuery = db
         .from("payments")
-        .select("total_paid, balance, status, created_at, unit_id");
+        .select("total_paid, balance, status, unit_id, billing_cycles(month, year)");
       let recentQuery = db
         .from("payments")
-        .select("id, total_paid, payment_date, payment_mode, unit_id, units(unit_no, owner_name)")
+        .select("id, total_paid, payment_date, payment_mode, unit_id, billing_cycles(month, year), units(unit_no, owner_name)")
+        .eq("status", "PAID")
         .order("created_at", { ascending: false })
         .limit(10);
       let expiringQuery = db
@@ -148,32 +147,22 @@ function Dashboard() {
   const total = data.units.length;
   const sold = data.units.filter((u: any) => u.status === "sold").length;
   const unsold = data.units.filter((u: any) => u.status !== "sold").length;
+  const totalTenants = data.units.filter((u: any) => u.status === "sold" && u.owner_name).length;
   const inWaiver = data.units.filter((u: any) => u.status === "sold" && !u.billing_enabled).length;
   const billingActive = data.units.filter((u: any) => u.billing_enabled).length;
 
-  const totalDue = data.billing.reduce((s: number, b: any) => s + Number(b.total_due), 0);
-  const collectedThisMonth = data.payments
-    .filter((p: any) => {
-      const d = new Date(p.created_at);
-      return d.getMonth() === new Date().getMonth() && d.getFullYear() === new Date().getFullYear();
-    })
-    .reduce((s: number, p: any) => s + Number(p.total_paid), 0);
-  const outstanding = data.payments.reduce((s: number, p: any) => s + Number(p.balance), 0);
-  const efficiency = totalDue > 0 ? Math.round((collectedThisMonth / totalDue) * 100) : 0;
-
-  // Chart data — last 6 months collection (synthetic, summed from payments)
   const chartData = Array.from({ length: 6 }).map((_, i) => {
     const d = new Date();
     d.setMonth(d.getMonth() - (5 - i));
-    const m = d.getMonth(),
-      y = d.getFullYear();
+    const m = MONTHS[d.getMonth()];
+    const y = d.getFullYear();
     const collected = data.payments
       .filter((p: any) => {
-        const pd = new Date(p.created_at);
-        return pd.getMonth() === m && pd.getFullYear() === y;
+        if (p.status !== "PAID") return false;
+        return p.billing_cycles?.month === m && p.billing_cycles?.year === y;
       })
       .reduce((s: number, p: any) => s + Number(p.total_paid), 0);
-    return { month: MONTHS[m].slice(0, 3), collected };
+    return { month: m.slice(0, 3), collected };
   });
 
   const statusCounts = ["PAID", "UNPAID", "PARTIAL", "WAIVER PERIOD"].map((st) => ({
@@ -186,9 +175,7 @@ function Dashboard() {
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">
-          Residentia — RWA Malabar Red Orchids · {data.monthName} {data.year}
-        </p>
+        <p className="text-sm text-muted-foreground">RWA Malabar Red Orchids</p>
       </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -197,6 +184,12 @@ function Dashboard() {
           label="Total Units"
           value={String(total)}
           hint={`${sold} sold · ${unsold} unsold`}
+        />
+        <Stat
+          icon={Users}
+          label="Total Tenants"
+          value={String(totalTenants)}
+          accent="bg-status-paid/10 text-status-paid"
         />
         <Stat
           icon={BadgeCheck}
@@ -210,37 +203,12 @@ function Dashboard() {
           value={String(inWaiver)}
           accent="bg-status-waiver/10 text-status-waiver"
         />
-        <Stat
-          icon={TrendingUp}
-          label="Collection Efficiency"
-          value={`${efficiency}%`}
-          hint={`${inr(collectedThisMonth)} of ${inr(totalDue)}`}
-          accent="bg-gold/20 text-foreground"
-        />
-        <Stat
-          icon={Coins}
-          label="Collected (this month)"
-          value={inr(collectedThisMonth)}
-          accent="bg-status-paid/10 text-status-paid"
-        />
-        <Stat
-          icon={AlertTriangle}
-          label="Total Outstanding"
-          value={inr(outstanding)}
-          accent="bg-status-unpaid/10 text-status-unpaid"
-        />
-        <Stat
-          icon={CalendarClock}
-          label="Waivers Expiring (30d)"
-          value={String(data.expiring.length)}
-          accent="bg-gold/20 text-foreground"
-        />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="p-6 lg:col-span-2">
           <div className="mb-4 flex items-baseline justify-between">
-            <h2 className="text-lg font-semibold">Collection — last 6 months</h2>
+            <h2 className="text-lg font-semibold">Collection Report</h2>
           </div>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -289,7 +257,7 @@ function Dashboard() {
       </div>
 
       <Card className="p-6">
-        <h2 className="mb-4 text-lg font-semibold">Recent payments</h2>
+        <h2 className="mb-4 text-lg font-semibold">Recent Payments</h2>
         {data.recent.length === 0 ? (
           <div className="text-sm text-muted-foreground">No payments recorded yet.</div>
         ) : (
@@ -299,8 +267,8 @@ function Dashboard() {
                 <tr>
                   <th className="pb-3">Unit</th>
                   <th className="pb-3">Owner</th>
-                  <th className="pb-3">Date</th>
-                  <th className="pb-3">Mode</th>
+                  <th className="pb-3">Bill Month</th>
+                  <th className="pb-3">Payment Date</th>
                   <th className="pb-3 text-right">Amount</th>
                 </tr>
               </thead>
@@ -309,8 +277,8 @@ function Dashboard() {
                   <tr key={p.id} className="border-t">
                     <td className="py-3 font-medium">{p.units?.unit_no ?? "—"}</td>
                     <td className="py-3">{p.units?.owner_name ?? "—"}</td>
+                    <td className="py-3">{p.billing_cycles?.month ?? "—"} {p.billing_cycles?.year ?? ""}</td>
                     <td className="py-3">{formatDate(p.payment_date)}</td>
-                    <td className="py-3">{p.payment_mode ?? "—"}</td>
                     <td className="py-3 text-right font-semibold">{inr(p.total_paid)}</td>
                   </tr>
                 ))}

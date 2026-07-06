@@ -29,7 +29,7 @@ function PaymentEntry() {
     queryFn: async () => {
       let query = db
         .from("units")
-        .select("id, unit_no, type, owner_name, billing_enabled, waiver_end_date")
+        .select("id, unit_no, type, owner_name, billing_enabled, waiver_end_date, maintenance_fee, garbage_fee, occupancy_type, monthly_rent")
         .order("floor")
         .order("unit_no");
       if (role === "owner" && user?.id) {
@@ -54,8 +54,9 @@ function PaymentEntry() {
   const unit = useMemo(() => units.find((u: any) => u.id === unitId), [units, unitId]);
   const inWaiver = unit && !unit.billing_enabled;
   const totalDue = unit
-    ? (RATES[unit.type as keyof typeof RATES]?.maintenance ?? 0) +
-      (RATES[unit.type as keyof typeof RATES]?.garbage ?? 0)
+    ? (Number(unit.maintenance_fee) || (RATES[unit.type as keyof typeof RATES]?.maintenance ?? 0)) +
+      (Number(unit.garbage_fee) || (RATES[unit.type as keyof typeof RATES]?.garbage ?? 0)) +
+      (unit.occupancy_type === "rented" ? (Number(unit.monthly_rent) || 0) : 0)
     : 0;
   const totalPaid = Number(maint) + Number(garbage);
   const balance = Math.max(totalDue - totalPaid, 0);
@@ -81,16 +82,19 @@ function PaymentEntry() {
     if (existing) {
       cycleId = existing.id;
     } else {
-      const r = RATES[unit.type as keyof typeof RATES] ?? { maintenance: 0, garbage: 0 };
+      const mFee = Number(unit.maintenance_fee) || (RATES[unit.type as keyof typeof RATES]?.maintenance ?? 0);
+      const gFee = Number(unit.garbage_fee) || (RATES[unit.type as keyof typeof RATES]?.garbage ?? 0);
+      const rFee = unit.occupancy_type === "rented" ? (Number(unit.monthly_rent) || 0) : 0;
       const { data: created, error } = await db
         .from("billing_cycles")
         .insert({
           unit_id: unit.id,
           month,
           year,
-          maintenance_due: r.maintenance,
-          garbage_due: r.garbage,
-          total_due: r.maintenance + r.garbage,
+          maintenance_due: mFee,
+          garbage_due: gFee,
+          rent_due: rFee,
+          total_due: Number(mFee) + Number(gFee) + Number(rFee),
           is_waiver_period: !unit.billing_enabled,
         })
         .select("id")

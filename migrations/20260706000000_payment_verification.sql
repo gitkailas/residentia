@@ -1,0 +1,3 @@
+ALTER TABLE public.payments
+  ADD COLUMN IF NOT EXISTS approved_by VARCHAR(255),
+  ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP;

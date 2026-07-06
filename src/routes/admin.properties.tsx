@@ -47,6 +47,7 @@ interface Property {
   property_name: string | null;
   description: string | null;
   area_sqft: number | null;
+  occupancy_type: string;
   monthly_rent: number;
 }
 
@@ -266,7 +267,7 @@ function PropertiesPage() {
                   </div>
                 </div>
                 <StatusBadge
-                  status={!p.owner_name ? "Vacant" : p.billing_enabled ? "Occupied" : "Waiver Period"}
+                  status={!p.owner_name ? "Vacant" : "Occupied"}
                 />
               </div>
 
@@ -275,13 +276,21 @@ function PropertiesPage() {
                   <span className="text-muted-foreground">Type</span>
                   <span className="font-medium">{p.type}</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Monthly Charges</span>
-                  <span className="inline-flex items-center gap-1 font-semibold">
-                    <IndianRupee className="h-3.5 w-3.5 text-muted-foreground" />
-                    {p.monthly_rent.toLocaleString("en-IN")}
-                  </span>
-                </div>
+                {p.status !== "vacant" && p.status !== "unsold" && p.occupancy_type === "rented" && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Rent Amount</span>
+                    <span className="inline-flex items-center gap-1 font-semibold">
+                      <IndianRupee className="h-3.5 w-3.5 text-muted-foreground" />
+                      {p.monthly_rent.toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                )}
+                {p.status !== "vacant" && p.status !== "unsold" && p.occupancy_type === "owner_occupied" && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Owner Occupied</span>
+                    <span className="font-semibold text-green-600">Yes</span>
+                  </div>
+                )}
                 {p.area_sqft && (
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Area</span>
@@ -377,7 +386,6 @@ function PropertyDialog({
     unit_no: editing?.unit_no ?? "",
     floor: editing?.floor ?? 1,
     type: editing?.type ?? "2BHK",
-    monthly_rent: editing?.monthly_rent?.toString() ?? "",
     status: editing?.status ?? "vacant",
     description: editing?.description ?? "",
     area_sqft: editing?.area_sqft?.toString() ?? "",
@@ -398,13 +406,16 @@ function PropertyDialog({
   });
 
   async function save() {
+    if (editing?.owner_name && form.status !== "sold") {
+      toast.error("Cannot change status — tenant is assigned to this property. Remove the tenant first.");
+      return;
+    }
     setBusy(true);
     const payload: Record<string, unknown> = {
       property_name: form.property_name.trim() || null,
       unit_no: form.unit_no.trim(),
       floor: Number(form.floor),
       type: form.type,
-      monthly_rent: parseFloat(form.monthly_rent) || 0,
       status: form.status,
       description: form.description.trim() || null,
       area_sqft: form.area_sqft ? parseInt(form.area_sqft) : null,
@@ -518,17 +529,6 @@ function PropertyDialog({
           </Select>
         </div>
         <div className="space-y-2">
-          <Label>Monthly Charges (₹)</Label>
-          <Input
-            type="number"
-            min={0}
-            step={100}
-            value={form.monthly_rent}
-            onChange={(e) => setForm({ ...form, monthly_rent: e.target.value })}
-            placeholder="e.g. 15000"
-          />
-        </div>
-        <div className="space-y-2">
           <Label>Area (sq.ft)</Label>
           <Input
             type="number"
@@ -540,16 +540,19 @@ function PropertyDialog({
         </div>
         <div className="space-y-2">
           <Label>Status</Label>
-          <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="sold">Occupied</SelectItem>
-              <SelectItem value="vacant">Vacant</SelectItem>
-              <SelectItem value="unsold">Unsold</SelectItem>
-            </SelectContent>
-          </Select>
+          {editing && editing.owner_name ? (
+            <Input value="Occupied" disabled className="bg-muted" />
+          ) : (
+            <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="vacant">Vacant</SelectItem>
+                <SelectItem value="unsold">Unsold</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
         </div>
         <div className="space-y-2 md:col-span-2">
           <Label>Description</Label>

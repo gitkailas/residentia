@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { StatusBadge } from "@/components/StatusBadge";
-import { formatDate } from "@/lib/format";
+import { formatDate, RATES } from "@/lib/format";
 import { Plus, Search, Upload, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import Papa from "papaparse";
@@ -49,6 +49,9 @@ interface Unit {
   property_name: string | null;
   description: string | null;
   area_sqft: number | null;
+  occupancy_type: string;
+  maintenance_fee: number;
+  garbage_fee: number;
   monthly_rent: number;
 }
 
@@ -279,7 +282,7 @@ function UnitsPage() {
                     <td className="px-4 py-3">
                       <StatusBadge
                         status={
-                          !u.owner_name ? "Vacant" : u.billing_enabled ? "Active" : "Waiver Period"
+                          !u.owner_name ? "Vacant" : "Active"
                         }
                       />
                     </td>
@@ -544,6 +547,10 @@ function AssignTenantDialog({
     owner_phone: editing?.owner_phone ?? "",
     registration_date: editing?.registration_date ?? "",
     key_handover_date: editing?.key_handover_date ?? "",
+    occupancy_type: editing?.occupancy_type ?? "owner_occupied",
+    rent_amount: editing?.monthly_rent?.toString() ?? "",
+    maintenance_fee: editing?.maintenance_fee?.toString() ?? "",
+    garbage_fee: editing?.garbage_fee?.toString() ?? "",
   });
 
   useEffect(() => {
@@ -553,8 +560,26 @@ function AssignTenantDialog({
       owner_phone: editing?.owner_phone ?? "",
       registration_date: editing?.registration_date ?? "",
       key_handover_date: editing?.key_handover_date ?? "",
+      occupancy_type: editing?.occupancy_type ?? "owner_occupied",
+      rent_amount: editing?.monthly_rent?.toString() ?? "",
+      maintenance_fee: editing?.maintenance_fee?.toString() ?? "",
+      garbage_fee: editing?.garbage_fee?.toString() ?? "",
     });
   }, [editing]);
+
+  // Pre-fill fees from RATES when selecting a new unit
+  useEffect(() => {
+    if (selectedUnit && !editing) {
+      const rates = RATES[selectedUnit.type as keyof typeof RATES];
+      if (rates) {
+        setForm(f => ({
+          ...f,
+          maintenance_fee: rates.maintenance.toString(),
+          garbage_fee: rates.garbage.toString(),
+        }));
+      }
+    }
+  }, [selectedUnitId]);
   const [busy, setBusy] = useState(false);
 
   const selectedUnit = editing?.id === selectedUnitId ? editing : vacantUnits.find((u) => u.id === selectedUnitId);
@@ -577,21 +602,36 @@ function AssignTenantDialog({
       return;
     }
 
+    if (!form.occupancy_type) {
+      toast.error("Select occupancy type");
+      return;
+    }
+
     setBusy(true);
     const billing_enabled = !!form.key_handover_date;
 
+    const unitPayload: Record<string, unknown> = {
+      owner_name: form.owner_name.trim() || null,
+      owner_phone: form.owner_phone.trim() || null,
+      registration_date: form.registration_date || null,
+      key_handover_date: form.key_handover_date || null,
+      billing_enabled,
+      occupancy_type: form.occupancy_type,
+      maintenance_fee: parseFloat(form.maintenance_fee) || 0,
+      garbage_fee: parseFloat(form.garbage_fee) || 0,
+      monthly_rent: form.occupancy_type === "rented" ? parseFloat(form.rent_amount) || 0 : 0,
+      status: "sold",
+    };
+
     try {
       if (editing) {
-        const { error } = await db.from("units").update({
-          owner_name: form.owner_name.trim() || null,
-          owner_phone: form.owner_phone.trim() || null,
-          registration_date: form.registration_date || null,
-          key_handover_date: form.key_handover_date || null,
-          billing_enabled,
-        }).eq("id", editing.id);
+        const { error } = await db.from("units").update(unitPayload).eq("id", editing.id);
         if (error) throw error;
         toast.success("Tenant updated");
       } else {
+        const { error: unitError } = await db.from("units").update(unitPayload).eq("id", selectedUnitId);
+        if (unitError) throw unitError;
+
         await apiFetch("/api/auth/create-tenant", {
           email: form.owner_phone.trim(),
           password: form.owner_phone.trim(),
@@ -641,59 +681,93 @@ function AssignTenantDialog({
           )}
         </div>
 
-        {selectedUnit && (
-          <div className="rounded-lg border bg-muted/30 p-3 text-xs space-y-1">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Monthly rent</span>
-              <span className="font-semibold">
-                ₹{selectedUnit.monthly_rent.toLocaleString("en-IN")}
-              </span>
-            </div>
-            {selectedUnit.area_sqft && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Area</span>
-                <span>{selectedUnit.area_sqft} sq.ft</span>
-              </div>
-            )}
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Maintenance Fee (₹)</Label>
+            <Input
+              type="number"
+              min={0}
+              step={100}
+              value={form.maintenance_fee}
+              onChange={(e) => setForm({ ...form, maintenance_fee: e.target.value })}
+              placeholder="e.g. 1900"
+            />
           </div>
-        )}
-
-        <div className="space-y-2">
-          <Label>Tenant name</Label>
-          <Input
-            value={form.owner_name}
-            onChange={(e) => setForm({ ...form, owner_name: e.target.value })}
-            placeholder="Full name"
-          />
+          <div className="space-y-2">
+            <Label>Garbage Fee (₹)</Label>
+            <Input
+              type="number"
+              min={0}
+              step={10}
+              value={form.garbage_fee}
+              onChange={(e) => setForm({ ...form, garbage_fee: e.target.value })}
+              placeholder="e.g. 100"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Occupancy Type</Label>
+            <Select value={form.occupancy_type} onValueChange={(v) => setForm({ ...form, occupancy_type: v })}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select occupancy type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="owner_occupied">Owner Occupied</SelectItem>
+                <SelectItem value="rented">Rented</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {form.occupancy_type === "rented" && (
+            <div className="space-y-2">
+              <Label>Rent Amount (₹)</Label>
+              <Input
+                type="number"
+                min={0}
+                step={100}
+                value={form.rent_amount}
+                onChange={(e) => setForm({ ...form, rent_amount: e.target.value })}
+                placeholder="e.g. 15000"
+              />
+            </div>
+          )}
         </div>
 
-        <div className="space-y-2">
-          <Label>Tenant mobile number</Label>
-          <Input
-            value={form.owner_phone}
-            onChange={(e) => setForm({ ...form, owner_phone: e.target.value })}
-            placeholder="e.g. 9876543210"
-          />
-          <p className="text-xs text-muted-foreground">
-            Tenant will use this number as both username and password to log in.
-          </p>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Tenant name</Label>
+            <Input
+              value={form.owner_name}
+              onChange={(e) => setForm({ ...form, owner_name: e.target.value })}
+              placeholder="Full name"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Tenant mobile number</Label>
+            <Input
+              value={form.owner_phone}
+              onChange={(e) => setForm({ ...form, owner_phone: e.target.value })}
+              placeholder="e.g. 9876543210"
+            />
+
+          </div>
         </div>
 
-        <div className="space-y-2">
-          <Label>Registration date</Label>
-          <Input
-            type="date"
-            value={form.registration_date}
-            onChange={(e) => setForm({ ...form, registration_date: e.target.value })}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>Key handover date</Label>
-          <Input
-            type="date"
-            value={form.key_handover_date}
-            onChange={(e) => setForm({ ...form, key_handover_date: e.target.value })}
-          />
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Registration date</Label>
+            <Input
+              type="date"
+              value={form.registration_date}
+              onChange={(e) => setForm({ ...form, registration_date: e.target.value })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Key handover date</Label>
+            <Input
+              type="date"
+              value={form.key_handover_date}
+              onChange={(e) => setForm({ ...form, key_handover_date: e.target.value })}
+            />
+          </div>
         </div>
       </div>
 

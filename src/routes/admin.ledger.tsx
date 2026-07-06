@@ -1,10 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { db } from "@/integrations/db/client";
+import { useAuth } from "@/hooks/use-auth";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -15,7 +25,8 @@ import {
 import { StatusBadge } from "@/components/StatusBadge";
 import { inr, formatDate, MONTHS } from "@/lib/format";
 import { generateReceiptPDF } from "@/lib/receipt";
-import { Search, Download, FileText } from "lucide-react";
+import { toast } from "sonner";
+import { Search, Download, FileText, ShieldCheck, ShieldX, Eye, X } from "lucide-react";
 
 export const Route = createFileRoute("/admin/ledger")({
   component: Ledger,
@@ -27,17 +38,37 @@ const STATUS_ROW: Record<string, string> = {
   PARTIAL: "bg-status-partial/5",
   "WAIVER PERIOD": "bg-status-waiver/5",
   "ADVANCE PAID": "bg-status-advance/5",
+  REJECTED: "bg-status-unpaid/5",
 };
 
 function Ledger() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  const [preview, setPreview] = useState<string | null>(null);
+  const [rejecting, setRejecting] = useState<any | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+
+  const { data: pendingCount = 0 } = useQuery({
+    queryKey: ["pending-verification-count"],
+    queryFn: async () => {
+      const { data } = await db
+        .from("payments")
+        .select("id")
+        .eq("status", "PENDING VERIFICATION");
+      return (data ?? []).length;
+    },
+    refetchInterval: 30_000,
+  });
+
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["ledger"],
     queryFn: async () => {
       const { data } = await db
         .from("payments")
         .select(
-          "id, total_paid, balance, status, payment_date, payment_mode, reference_no, billing_cycles(month, year, total_due), units(unit_no, owner_name, type)",
+          "id, unit_id, total_paid, balance, status, payment_date, payment_mode, reference_no, proof_url, billing_cycles(month, year, total_due), units(unit_no, owner_name, type)",
         )
+        .not("billing_cycle_id", "is", null)
         .order("created_at", { ascending: false })
         .limit(500);
       return data ?? [];
@@ -63,10 +94,68 @@ function Ledger() {
     });
   }, [rows, search, status, month]);
 
+  async function approve(payment: any) {
+    const { error } = await db.from("payments").update({
+      status: "PAID",
+      balance: 0,
+      approved_by: user?.email ?? null,
+      approved_at: new Date().toISOString(),
+    }).eq("id", payment.id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(`Payment approved — ${payment.units?.unit_no}`);
+    qc.invalidateQueries({ queryKey: ["ledger"] });
+    qc.invalidateQueries({ queryKey: ["pending-verification-count"] });
+  }
+
+  async function reject(payment: any, reason: string) {
+    if (!reason.trim()) {
+      toast.error("Enter a reason for rejection");
+      return;
+    }
+    setRejecting(null);
+    setRejectReason("");
+
+    const { error } = await db.from("payments").update({
+      status: "REJECTED",
+      approved_by: null,
+      approved_at: null,
+      rejection_reason: reason,
+    }).eq("id", payment.id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    const { data: tenant } = await db
+      .from("profiles")
+      .select("id")
+      .eq("unit_id", payment.unit_id)
+      .maybeSingle();
+
+    if (tenant) {
+      const month = payment.billing_cycles?.month ?? "";
+      const year = payment.billing_cycles?.year ?? "";
+      await db.from("notifications").insert({
+        user_id: tenant.id,
+        title: "Payment Rejected",
+        message: `Your payment for ${month} ${year} (${payment.units?.unit_no}) was rejected. Reason: ${reason}`,
+        payment_id: payment.id,
+        type: "payment_rejected",
+      });
+    }
+
+    toast.success(`Payment rejected — ${payment.units?.unit_no}`);
+    qc.invalidateQueries({ queryKey: ["ledger"] });
+    qc.invalidateQueries({ queryKey: ["pending-verification-count"] });
+  }
+
   function exportCsv() {
     const headers = [
       "Unit",
-      "Owner",
+      "Tenant",
       "Month",
       "Year",
       "Due",
@@ -109,7 +198,12 @@ function Ledger() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Payment Ledger</h1>
-          <p className="text-sm text-muted-foreground">{filtered.length} entries</p>
+          <p className="text-sm text-muted-foreground">
+            {filtered.length} entries
+            {pendingCount > 0 && (
+              <span className="ml-2 text-status-unpaid">· {pendingCount} pending verification</span>
+            )}
+          </p>
         </div>
         <Button onClick={exportCsv} variant="outline">
           <Download className="mr-2 h-4 w-4" />
@@ -147,7 +241,7 @@ function Ledger() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All statuses</SelectItem>
-              {["PAID", "UNPAID", "PARTIAL", "WAIVER PERIOD", "ADVANCE PAID"].map((s) => (
+              {["PAID", "UNPAID", "PARTIAL", "WAIVER PERIOD", "ADVANCE PAID", "REJECTED"].map((s) => (
                 <SelectItem key={s} value={s}>
                   {s}
                 </SelectItem>
@@ -168,7 +262,7 @@ function Ledger() {
               <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3">Unit</th>
-                  <th className="px-4 py-3">Owner</th>
+                  <th className="px-4 py-3">Tenant</th>
                   <th className="px-4 py-3">Month</th>
                   <th className="px-4 py-3 text-right">Due</th>
                   <th className="px-4 py-3 text-right">Paid</th>
@@ -196,31 +290,65 @@ function Ledger() {
                     <td className="px-4 py-3">{formatDate(r.payment_date)}</td>
                     <td className="px-4 py-3">{r.payment_mode ?? "—"}</td>
                     <td className="px-4 py-3 text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() =>
-                          generateReceiptPDF({
-                            receiptNo: r.id.slice(0, 8).toUpperCase(),
-                            unitNo: r.units?.unit_no ?? "",
-                            ownerName: r.units?.owner_name ?? null,
-                            type: r.units?.type ?? "",
-                            month: r.billing_cycles?.month ?? "—",
-                            year: r.billing_cycles?.year ?? "",
-                            amountMaintenance: 0,
-                            amountGarbage: 0,
-                            totalPaid: Number(r.total_paid),
-                            balance: Number(r.balance),
-                            paymentDate: r.payment_date,
-                            paymentMode: r.payment_mode,
-                            referenceNo: r.reference_no,
-                            status: r.status,
-                          })
-                        }
-                      >
-                        <FileText className="mr-1 h-4 w-4" />
-                        Receipt
-                      </Button>
+                      <div className="flex items-center justify-end gap-1">
+                        {r.status === "PENDING VERIFICATION" && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-status-paid hover:text-status-paid"
+                              onClick={() => approve(r)}
+                              title="Approve"
+                            >
+                              <ShieldCheck className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-status-unpaid hover:text-status-unpaid"
+                              onClick={() => { setRejecting(r); setRejectReason(""); }}
+                              title="Reject"
+                            >
+                              <ShieldX className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
+                        {r.proof_url && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setPreview(r.proof_url)}
+                            title="View proof"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            generateReceiptPDF({
+                              receiptNo: r.id.slice(0, 8).toUpperCase(),
+                              unitNo: r.units?.unit_no ?? "",
+                              ownerName: r.units?.owner_name ?? null,
+                              type: r.units?.type ?? "",
+                              month: r.billing_cycles?.month ?? "—",
+                              year: r.billing_cycles?.year ?? "",
+                              amountMaintenance: 0,
+                              amountGarbage: 0,
+                              amountRent: 0,
+                              totalPaid: Number(r.total_paid),
+                              balance: Number(r.balance),
+                              paymentDate: r.payment_date,
+                              paymentMode: r.payment_mode,
+                              referenceNo: r.reference_no,
+                              status: r.status,
+                            })
+                          }
+                        >
+                          <FileText className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -229,6 +357,59 @@ function Ledger() {
           </div>
         )}
       </Card>
+      {preview && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setPreview(null)}
+        >
+          <div className="relative max-h-[90vh] max-w-lg" onClick={(e) => e.stopPropagation()}>
+            <button
+              className="absolute -right-3 -top-3 rounded-full bg-background p-1.5 shadow-md"
+              onClick={() => setPreview(null)}
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <img
+              src={preview}
+              alt="Payment proof"
+              className="max-h-[85vh] w-auto rounded-lg shadow-xl"
+            />
+          </div>
+        </div>
+      )}
+
+      <Dialog open={!!rejecting} onOpenChange={(o) => { if (!o) setRejecting(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject Payment</DialogTitle>
+            <DialogDescription>
+              {rejecting && `${rejecting.units?.unit_no} — ${rejecting.billing_cycles?.month} ${rejecting.billing_cycles?.year}`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Reason for rejection</Label>
+              <Textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Enter the reason why this payment is being rejected..."
+                rows={3}
+              />
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setRejecting(null)}>Cancel</Button>
+              <Button
+                variant="destructive"
+                onClick={() => reject(rejecting, rejectReason)}
+                disabled={!rejectReason.trim()}
+              >
+                <ShieldX className="mr-1.5 h-4 w-4" />
+                Reject
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

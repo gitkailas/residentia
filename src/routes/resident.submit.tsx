@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { db } from "@/integrations/db/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Card } from "@/components/ui/card";
@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/select";
 import { MONTHS, inr } from "@/lib/format";
 import { toast } from "sonner";
-import { Upload, IndianRupee, Copy, Check, CreditCard, Loader2 } from "lucide-react";
+import { Upload, IndianRupee, Copy, Check, CreditCard, Loader2, CalendarDays } from "lucide-react";
 import QRCode from "qrcode";
 
 declare global {
@@ -68,7 +68,8 @@ function SubmitPayment() {
         .select("unit_id")
         .eq("id", user!.id)
         .maybeSingle();
-      if (!profile?.unit_id) return { hasUnit: false, unit: null, cycle: null, existing: null };
+      if (!profile?.unit_id)
+        return { hasUnit: false, unit: null, cycle: null, existing: null, billedMonths: [] };
 
       const { data: unit } = await db
         .from("units")
@@ -94,6 +95,16 @@ function SubmitPayment() {
           null;
       }
 
+      const { data: billedCycles } = await db
+        .from("billing_cycles")
+        .select("month, year")
+        .eq("unit_id", profile.unit_id);
+
+      const billedMonths = (billedCycles ?? []).map((c: { month: string; year: number }) => ({
+        month: c.month,
+        year: c.year,
+      }));
+
       const { data: cycle } = await db
         .from("billing_cycles")
         .select("*")
@@ -109,7 +120,7 @@ function SubmitPayment() {
         .eq("billing_cycle_id", cycle?.id)
         .maybeSingle();
 
-      return { hasUnit: true, unit, cycle, existing, ownerUpiId, ownerName };
+      return { hasUnit: true, unit, cycle, existing, ownerUpiId, ownerName, billedMonths };
     },
   });
 
@@ -124,14 +135,32 @@ function SubmitPayment() {
   const razorpayConfigured = razorpayConfig?.configured === true;
 
   const cycle = data?.cycle;
-  const unit = data?.unit;
-  const fallbackMaintenance = unit ? Number(unit.maintenance_fee) || 0 : 0;
-  const fallbackGarbage = unit ? Number(unit.garbage_fee) || 0 : 0;
-  const fallbackRent = unit?.occupancy_type === "rented" ? Number(unit.monthly_rent) || 0 : 0;
-  const mFee = cycle ? Number(cycle.maintenance_due) : fallbackMaintenance;
-  const gFee = cycle ? Number(cycle.garbage_due) : fallbackGarbage;
-  const rFee = cycle ? Number(cycle.rent_due) : fallbackRent;
-  const totalDue = cycle ? Number(cycle.total_due) : mFee + gFee + rFee;
+  const billedMonths = useMemo(() => data?.billedMonths ?? [], [data?.billedMonths]);
+
+  const availableMonths = useMemo(
+    () => billedMonths.filter((m) => m.year === year).map((m) => m.month),
+    [billedMonths, year],
+  );
+
+  const availableYears = useMemo(
+    () => [...new Set(billedMonths.map((m) => m.year))].sort((a, b) => b - a),
+    [billedMonths],
+  );
+
+  useEffect(() => {
+    if (data?.hasUnit && billedMonths.length > 0 && !cycle) {
+      const latest = billedMonths[billedMonths.length - 1];
+      if (latest.month !== month || latest.year !== year) {
+        setMonth(latest.month);
+        setYear(latest.year);
+      }
+    }
+  }, [data?.hasUnit, billedMonths, cycle, month, year]);
+
+  const mFee = cycle ? Number(cycle.maintenance_due) : 0;
+  const gFee = cycle ? Number(cycle.garbage_due) : 0;
+  const rFee = cycle ? Number(cycle.rent_due) : 0;
+  const totalDue = cycle ? Number(cycle.total_due) : 0;
   const totalPaid = Number(maintenancePaid) + Number(garbagePaid) + Number(rentPaid);
   const balance = Math.max(totalDue - totalPaid, 0);
 
@@ -140,12 +169,12 @@ function SubmitPayment() {
       setMaintenancePaid(Number(cycle.maintenance_due));
       setGarbagePaid(Number(cycle.garbage_due));
       if (Number(cycle.rent_due) > 0) setRentPaid(Number(cycle.rent_due));
-    } else if (unit) {
-      setMaintenancePaid(fallbackMaintenance);
-      setGarbagePaid(fallbackGarbage);
-      if (fallbackRent > 0) setRentPaid(fallbackRent);
+    } else {
+      setMaintenancePaid(0);
+      setGarbagePaid(0);
+      setRentPaid(0);
     }
-  }, [cycle, unit, fallbackMaintenance, fallbackGarbage, fallbackRent]);
+  }, [cycle]);
 
   const upiLink =
     data?.ownerUpiId && totalPaid > 0
@@ -176,8 +205,8 @@ function SubmitPayment() {
   }, [razorpayConfigured]);
 
   async function handleRazorpayPayment() {
-    if (!data?.unit) {
-      toast.error("No unit linked");
+    if (!data?.unit || !cycle) {
+      toast.error("No billing cycle found");
       return;
     }
     if (totalPaid <= 0) {
@@ -187,31 +216,6 @@ function SubmitPayment() {
     setRazorpayBusy(true);
 
     try {
-      // Ensure billing cycle exists
-      let cycleId = cycle?.id;
-      if (!cycleId) {
-        const { data: created, error: cycleError } = await db
-          .from("billing_cycles")
-          .insert({
-            unit_id: data.unit.id,
-            month,
-            year,
-            maintenance_due: mFee,
-            garbage_due: gFee,
-            rent_due: rFee,
-            total_due: totalDue,
-            is_waiver_period: false,
-          })
-          .select("id")
-          .single();
-        if (cycleError) {
-          toast.error(cycleError.message);
-          setRazorpayBusy(false);
-          return;
-        }
-        cycleId = created.id;
-      }
-
       // 1. Create order on server
       const orderRes = await fetch("/api/payments/create-order", {
         method: "POST",
@@ -221,7 +225,7 @@ function SubmitPayment() {
         },
         body: JSON.stringify({
           unit_id: data.unit.id,
-          billing_cycle_id: cycleId,
+          billing_cycle_id: cycle.id,
           amount: totalPaid,
           month,
           year,
@@ -265,7 +269,7 @@ function SubmitPayment() {
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_signature: response.razorpay_signature,
                 unit_id: data.unit!.id,
-                billing_cycle_id: cycleId,
+                billing_cycle_id: cycle.id,
                 maintenance: maintenancePaid,
                 garbage: garbagePaid,
                 rent: rentPaid,
@@ -478,11 +482,21 @@ function SubmitPayment() {
         </p>
       </div>
 
-      {(cycle || data?.unit) && (
+      {!isLoading && data?.hasUnit && !cycle && (
+        <Card className="p-8 text-center text-sm text-muted-foreground">
+          <CalendarDays className="mx-auto h-8 w-8 text-muted-foreground/50" />
+          <p className="mt-3 font-medium text-foreground">
+            No bill generated for {month} {year}
+          </p>
+          <p className="mt-1">Please wait for the admin to generate your monthly bill.</p>
+        </Card>
+      )}
+
+      {cycle && (
         <Card className="border-primary/30 bg-primary/5 p-4">
           <div className="text-xs uppercase tracking-wider text-muted-foreground">Bill for</div>
           <div className="mt-1 text-lg font-bold">
-            {cycle ? `${cycle.month} ${cycle.year}` : `${month} ${year}`}
+            {cycle.month} {cycle.year}
           </div>
           <div className="mt-2 grid grid-cols-3 gap-3 text-sm">
             <div>
@@ -507,7 +521,7 @@ function SubmitPayment() {
         </Card>
       )}
 
-      {razorpayConfigured && (cycle || data?.unit) && (
+      {razorpayConfigured && cycle && (
         <Card className="p-6">
           <div className="flex items-start gap-4">
             <div className="rounded-lg bg-primary/10 p-3">
@@ -542,7 +556,7 @@ function SubmitPayment() {
         </Card>
       )}
 
-      {razorpayConfigured && (cycle || data?.unit) && (
+      {razorpayConfigured && cycle && (
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t" />
@@ -563,17 +577,38 @@ function SubmitPayment() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {MONTHS.map((m) => (
-                    <SelectItem key={m} value={m}>
-                      {m}
-                    </SelectItem>
-                  ))}
+                  {availableMonths.length > 0
+                    ? availableMonths.map((m) => (
+                        <SelectItem key={m} value={m}>
+                          {m}
+                        </SelectItem>
+                      ))
+                    : MONTHS.map((m) => (
+                        <SelectItem key={m} value={m}>
+                          {m}
+                        </SelectItem>
+                      ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label>Year</Label>
-              <Input type="number" value={year} onChange={(e) => setYear(Number(e.target.value))} />
+              <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableYears.length > 0 ? (
+                    availableYears.map((y) => (
+                      <SelectItem key={y} value={String(y)}>
+                        {y}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value={String(year)}>{year}</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">

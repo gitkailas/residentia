@@ -39,7 +39,7 @@ export const Route = createFileRoute("/resident/submit")({
 function SubmitPayment() {
   const qc = useQueryClient();
   const nav = useNavigate();
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const search = useSearch({ from: "/resident/submit" });
   const today = new Date();
   const [month, setMonth] = useState(search.month ?? MONTHS[today.getMonth()]);
@@ -182,7 +182,10 @@ function SubmitPayment() {
       // 1. Create order on server
       const orderRes = await fetch("/api/payments/create-order", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
         body: JSON.stringify({
           unit_id: data.unit.id,
           billing_cycle_id: cycle.id,
@@ -218,7 +221,12 @@ function SubmitPayment() {
           try {
             const verifyRes = await fetch("/api/payments/verify", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: {
+                "Content-Type": "application/json",
+                ...(session?.access_token
+                  ? { Authorization: `Bearer ${session.access_token}` }
+                  : {}),
+              },
               body: JSON.stringify({
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_order_id: response.razorpay_order_id,

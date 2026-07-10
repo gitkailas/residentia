@@ -318,7 +318,8 @@ function SubmitPayment() {
         setRazorpayBusy(false);
       });
       rzp.open();
-    } catch {
+    } catch (error) {
+      console.error("Razorpay payment initiation failed:", error);
       toast.error("Failed to initiate payment");
       setRazorpayBusy(false);
     }

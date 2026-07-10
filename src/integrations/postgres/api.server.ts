@@ -7,6 +7,7 @@ import {
   verifyJwt,
 } from "./client.server";
 import { handleDbRequest } from "./db.server";
+import Razorpay from "razorpay";
 
 export async function handleApiRequest(request: Request) {
   const url = new URL(request.url);
@@ -802,9 +803,6 @@ function getRazorpayClient() {
   const keyId = process.env.RAZORPAY_KEY_ID;
   const keySecret = process.env.RAZORPAY_KEY_SECRET;
   if (!keyId || !keySecret) return null;
-  // Dynamic import so the module is only loaded when Razorpay is configured
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const Razorpay = require("razorpay");
   return new Razorpay({ key_id: keyId, key_secret: keySecret });
 }
 

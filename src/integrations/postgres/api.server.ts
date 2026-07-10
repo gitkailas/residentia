@@ -78,6 +78,42 @@ export async function handleApiRequest(request: Request) {
     }
     return handleDbRequest(request);
   }
+  if (url.pathname === "/api/payments/create-order") {
+    if (request.method !== "POST") {
+      return new Response(JSON.stringify({ error: { message: "Method not allowed" } }), {
+        status: 405,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    return handleCreateRazorpayOrder(request);
+  }
+  if (url.pathname === "/api/payments/verify") {
+    if (request.method !== "POST") {
+      return new Response(JSON.stringify({ error: { message: "Method not allowed" } }), {
+        status: 405,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    return handleVerifyRazorpayPayment(request);
+  }
+  if (url.pathname === "/api/payments/razorpay-webhook") {
+    if (request.method !== "POST") {
+      return new Response(JSON.stringify({ error: { message: "Method not allowed" } }), {
+        status: 405,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    return handleRazorpayWebhook(request);
+  }
+  if (url.pathname === "/api/payments/razorpay-key") {
+    if (request.method !== "GET") {
+      return new Response(JSON.stringify({ error: { message: "Method not allowed" } }), {
+        status: 405,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    return handleGetRazorpayKey();
+  }
   return null;
 }
 
@@ -755,5 +791,322 @@ async function handleListUsers(request: Request) {
       status: 500,
       headers: { "content-type": "application/json" },
     });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Razorpay helpers
+// ---------------------------------------------------------------------------
+
+function getRazorpayClient() {
+  const keyId = process.env.RAZORPAY_KEY_ID;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  if (!keyId || !keySecret) return null;
+  // Dynamic import so the module is only loaded when Razorpay is configured
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const Razorpay = require("razorpay");
+  return new Razorpay({ key_id: keyId, key_secret: keySecret });
+}
+
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+async function handleGetRazorpayKey() {
+  const keyId = process.env.RAZORPAY_KEY_ID;
+  if (!keyId) return json({ configured: false });
+  return json({ configured: true, key_id: keyId });
+}
+
+async function handleCreateRazorpayOrder(request: Request) {
+  const claims = getTokenClaims(request);
+  if (!claims) return json({ error: { message: "Unauthorized" } }, 401);
+
+  const razorpay = getRazorpayClient();
+  if (!razorpay) {
+    return json({ error: { message: "Razorpay is not configured" } }, 503);
+  }
+
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== "object") {
+    return json({ error: { message: "Invalid request body" } }, 400);
+  }
+
+  const { unit_id, billing_cycle_id, amount, month, year, maintenance, garbage, rent } = body as {
+    unit_id?: string;
+    billing_cycle_id?: string;
+    amount?: number;
+    month?: string;
+    year?: number;
+    maintenance?: number;
+    garbage?: number;
+    rent?: number;
+  };
+
+  if (!unit_id || !amount || amount <= 0) {
+    return json({ error: { message: "unit_id and a positive amount are required" } }, 400);
+  }
+
+  try {
+    const order = await razorpay.orders.create({
+      amount: Math.round(amount * 100), // paise
+      currency: "INR",
+      receipt: `${unit_id.slice(0, 8)}-${month}-${year}`,
+      notes: {
+        unit_id,
+        billing_cycle_id: billing_cycle_id || "",
+        month: month || "",
+        year: String(year || ""),
+        maintenance: String(maintenance || 0),
+        garbage: String(garbage || 0),
+        rent: String(rent || 0),
+      },
+    });
+
+    return json({
+      order_id: order.id,
+      amount: order.amount,
+      currency: order.currency,
+    });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[RAZORPAY] create-order error:", msg);
+    return json({ error: { message: `Failed to create order: ${msg}` } }, 500);
+  }
+}
+
+async function handleVerifyRazorpayPayment(request: Request) {
+  const claims = getTokenClaims(request);
+  if (!claims) return json({ error: { message: "Unauthorized" } }, 401);
+
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  if (!keySecret) {
+    return json({ error: { message: "Razorpay is not configured" } }, 503);
+  }
+
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== "object") {
+    return json({ error: { message: "Invalid request body" } }, 400);
+  }
+
+  const {
+    razorpay_order_id,
+    razorpay_payment_id,
+    razorpay_signature,
+    unit_id,
+    billing_cycle_id,
+    maintenance,
+    garbage,
+    rent,
+    total,
+    month,
+    year,
+  } = body as {
+    razorpay_order_id?: string;
+    razorpay_payment_id?: string;
+    razorpay_signature?: string;
+    unit_id?: string;
+    billing_cycle_id?: string;
+    maintenance?: number;
+    garbage?: number;
+    rent?: number;
+    total?: number;
+    month?: string;
+    year?: number;
+  };
+
+  if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+    return json({ error: { message: "Missing Razorpay payment details" } }, 400);
+  }
+
+  // Verify signature
+  const crypto = await import("crypto");
+  const expectedSig = crypto
+    .createHmac("sha256", keySecret)
+    .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+    .digest("hex");
+
+  if (expectedSig !== razorpay_signature) {
+    console.error("[RAZORPAY] Signature mismatch for order", razorpay_order_id);
+    return json({ error: { message: "Payment signature verification failed" } }, 400);
+  }
+
+  // Create payment record
+  try {
+    // Ensure billing cycle exists
+    let cycleId = billing_cycle_id || null;
+    if (!cycleId && unit_id && month && year) {
+      const existing = await pgPool.query(
+        `SELECT id FROM public.billing_cycles WHERE unit_id = $1 AND month = $2 AND year = $3`,
+        [unit_id, month, year],
+      );
+      if (existing.rows.length > 0) {
+        cycleId = existing.rows[0].id;
+      } else {
+        const created = await pgPool.query(
+          `INSERT INTO public.billing_cycles (unit_id, month, year, maintenance_due, garbage_due, rent_due, total_due, is_waiver_period)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, false) RETURNING id`,
+          [unit_id, month, year, maintenance || 0, garbage || 0, rent || 0, total || 0],
+        );
+        cycleId = created.rows[0].id;
+      }
+    }
+
+    const paidAmount = total || 0;
+    const dueAmount = paidAmount; // For Razorpay, the full order amount is paid
+
+    const result = await pgPool.query(
+      `INSERT INTO public.payments
+        (unit_id, billing_cycle_id, amount_maintenance, amount_garbage, total_paid, balance, payment_date, payment_mode, status, razorpay_order_id, razorpay_payment_id, recorded_by)
+       VALUES ($1, $2, $3, $4, $5, $6, CURRENT_DATE, 'UPI', 'PENDING VERIFICATION', $7, $8, $9)
+       RETURNING id`,
+      [
+        unit_id,
+        cycleId,
+        maintenance || 0,
+        garbage || 0,
+        paidAmount,
+        0,
+        razorpay_order_id,
+        razorpay_payment_id,
+        claims.email || claims.sub,
+      ],
+    );
+
+    return json({ success: true, payment_id: result.rows[0].id });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[RAZORPAY] verify error:", msg);
+    return json({ error: { message: `Failed to verify payment: ${msg}` } }, 500);
+  }
+}
+
+async function handleRazorpayWebhook(request: Request) {
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  if (!keySecret) {
+    return json({ error: { message: "Razorpay is not configured" } }, 503);
+  }
+
+  // Read raw body for signature verification
+  const rawBody = await request.text();
+
+  // Verify webhook signature
+  const razorpaySignature = request.headers.get("x-razorpay-signature");
+  if (!razorpaySignature) {
+    return json({ error: { message: "Missing webhook signature" } }, 400);
+  }
+
+  const crypto = await import("crypto");
+  const expectedSig = crypto.createHmac("sha256", keySecret).update(rawBody).digest("hex");
+
+  if (expectedSig !== razorpaySignature) {
+    console.error("[RAZORPAY] Webhook signature mismatch");
+    return json({ error: { message: "Invalid webhook signature" } }, 400);
+  }
+
+  let payload;
+  try {
+    payload = JSON.parse(rawBody);
+  } catch {
+    return json({ error: { message: "Invalid JSON" } }, 400);
+  }
+
+  const event = payload?.event;
+  if (event !== "payment.captured") {
+    // Acknowledge other events without processing
+    return json({ status: "ignored" });
+  }
+
+  const paymentEntity = payload?.payload?.payment?.entity;
+  if (!paymentEntity) {
+    return json({ error: { message: "Missing payment entity" } }, 400);
+  }
+
+  const {
+    id: rpPaymentId,
+    order_id: rpOrderId,
+    amount,
+    method,
+    notes,
+  } = paymentEntity as {
+    id: string;
+    order_id: string;
+    amount: number;
+    method: string;
+    notes: Record<string, string>;
+  };
+
+  const unitId = notes?.unit_id;
+  const billingCycleId = notes?.billing_cycle_id || null;
+  const month = notes?.month;
+  const year = notes?.year ? parseInt(notes.year) : null;
+  const maintenance = notes?.maintenance ? parseFloat(notes.maintenance) : 0;
+  const garbage = notes?.garbage ? parseFloat(notes.garbage) : 0;
+  const rent = notes?.rent ? parseFloat(notes.rent) : 0;
+
+  if (!unitId) {
+    console.error("[RAZORPAY] Webhook missing unit_id in notes");
+    return json({ error: { message: "Missing unit_id in order notes" } }, 400);
+  }
+
+  try {
+    // Check for duplicate webhook
+    const existing = await pgPool.query(
+      `SELECT id FROM public.payments WHERE razorpay_payment_id = $1`,
+      [rpPaymentId],
+    );
+    if (existing.rows.length > 0) {
+      console.log("[RAZORPAY] Webhook duplicate — payment already recorded:", rpPaymentId);
+      return json({ status: "already_processed" });
+    }
+
+    // Ensure billing cycle exists
+    let cycleId = billingCycleId || null;
+    if (!cycleId && month && year) {
+      const cycleResult = await pgPool.query(
+        `SELECT id FROM public.billing_cycles WHERE unit_id = $1 AND month = $2 AND year = $3`,
+        [unitId, month, year],
+      );
+      if (cycleResult.rows.length > 0) {
+        cycleId = cycleResult.rows[0].id;
+      } else if (month && year) {
+        const created = await pgPool.query(
+          `INSERT INTO public.billing_cycles (unit_id, month, year, maintenance_due, garbage_due, rent_due, total_due, is_waiver_period)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, false) RETURNING id`,
+          [unitId, month, year, maintenance, garbage, rent, amount / 100],
+        );
+        cycleId = created.rows[0].id;
+      }
+    }
+
+    const paidAmount = amount / 100; // Convert from paise
+
+    await pgPool.query(
+      `INSERT INTO public.payments
+        (unit_id, billing_cycle_id, amount_maintenance, amount_garbage, total_paid, balance, payment_date, payment_mode, status, razorpay_order_id, razorpay_payment_id, recorded_by)
+       VALUES ($1, $2, $3, $4, $5, $6, CURRENT_DATE, $7, 'PENDING VERIFICATION', $8, $9, 'razorpay-webhook')
+       ON CONFLICT DO NOTHING`,
+      [
+        unitId,
+        cycleId,
+        maintenance,
+        garbage,
+        paidAmount,
+        0,
+        method || "upi",
+        rpOrderId,
+        rpPaymentId,
+      ],
+    );
+
+    console.log("[RAZORPAY] Webhook payment recorded:", rpPaymentId);
+    return json({ status: "processed" });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[RAZORPAY] Webhook error:", msg);
+    return json({ error: { message: `Webhook processing failed: ${msg}` } }, 500);
   }
 }

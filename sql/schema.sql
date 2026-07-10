@@ -150,6 +150,8 @@ CREATE TABLE IF NOT EXISTS public.payments (
     proof_url TEXT,
     status VARCHAR(50) NOT NULL DEFAULT 'UNPAID',
     recorded_by VARCHAR(255),
+    razorpay_order_id VARCHAR(255),
+    razorpay_payment_id VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

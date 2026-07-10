@@ -16,8 +16,17 @@ import {
 } from "@/components/ui/select";
 import { MONTHS, inr } from "@/lib/format";
 import { toast } from "sonner";
-import { Upload, IndianRupee, Copy, Check } from "lucide-react";
+import { Upload, IndianRupee, Copy, Check, CreditCard, Loader2 } from "lucide-react";
 import QRCode from "qrcode";
+
+declare global {
+  interface Window {
+    Razorpay: new (options: Record<string, unknown>) => {
+      open: () => void;
+      on: (event: string, handler: () => void) => void;
+    };
+  }
+}
 
 export const Route = createFileRoute("/resident/submit")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -46,6 +55,8 @@ function SubmitPayment() {
   const [busy, setBusy] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [razorpayBusy, setRazorpayBusy] = useState(false);
+  const [razorpayLoaded, setRazorpayLoaded] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const { data, isLoading } = useQuery({
@@ -102,6 +113,16 @@ function SubmitPayment() {
     },
   });
 
+  const { data: razorpayConfig } = useQuery({
+    queryKey: ["razorpay-key"],
+    queryFn: async () => {
+      const res = await fetch("/api/payments/razorpay-key");
+      return res.json() as Promise<{ configured: boolean; key_id?: string }>;
+    },
+  });
+
+  const razorpayConfigured = razorpayConfig?.configured === true;
+
   const cycle = data?.cycle;
   const mFee = cycle ? Number(cycle.maintenance_due) : 0;
   const gFee = cycle ? Number(cycle.garbage_due) : 0;
@@ -132,6 +153,131 @@ function SubmitPayment() {
       setQrDataUrl(null);
     }
   }, [mode, upiLink]);
+
+  // Load Razorpay Checkout.js dynamically
+  useEffect(() => {
+    if (razorpayConfigured && !window.Razorpay) {
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onload = () => setRazorpayLoaded(true);
+      script.onerror = () => console.error("Failed to load Razorpay Checkout.js");
+      document.body.appendChild(script);
+    } else if (razorpayConfigured && window.Razorpay) {
+      setRazorpayLoaded(true);
+    }
+  }, [razorpayConfigured]);
+
+  async function handleRazorpayPayment() {
+    if (!data?.unit || !cycle) {
+      toast.error("No billing cycle found");
+      return;
+    }
+    if (totalPaid <= 0) {
+      toast.error("Enter at least one payment amount");
+      return;
+    }
+    setRazorpayBusy(true);
+
+    try {
+      // 1. Create order on server
+      const orderRes = await fetch("/api/payments/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          unit_id: data.unit.id,
+          billing_cycle_id: cycle.id,
+          amount: totalPaid,
+          month,
+          year,
+          maintenance: maintenancePaid,
+          garbage: garbagePaid,
+          rent: rentPaid,
+        }),
+      });
+      const orderData = await orderRes.json();
+      if (!orderRes.ok || orderData.error) {
+        toast.error(orderData.error?.message || "Failed to create payment order");
+        setRazorpayBusy(false);
+        return;
+      }
+
+      // 2. Open Razorpay Checkout
+      const options = {
+        key: razorpayConfig!.key_id,
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: "Malabar Red Orchids",
+        description: `Maintenance ${month} ${year} — ${data.unit.unit_no}`,
+        order_id: orderData.order_id,
+        handler: async (response: {
+          razorpay_payment_id: string;
+          razorpay_order_id: string;
+          razorpay_signature: string;
+        }) => {
+          // 3. Verify payment on server
+          try {
+            const verifyRes = await fetch("/api/payments/verify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_signature: response.razorpay_signature,
+                unit_id: data.unit!.id,
+                billing_cycle_id: cycle!.id,
+                maintenance: maintenancePaid,
+                garbage: garbagePaid,
+                rent: rentPaid,
+                total: totalPaid,
+                month,
+                year,
+              }),
+            });
+            const verifyData = await verifyRes.json();
+            if (!verifyRes.ok || verifyData.error) {
+              toast.error(
+                verifyData.error?.message ||
+                  "Payment received but verification failed. Contact support.",
+              );
+            } else {
+              toast.success("Payment submitted for owner verification");
+              qc.invalidateQueries({ queryKey: ["resident-payments"] });
+              qc.invalidateQueries({ queryKey: ["resident-home"] });
+              nav({ to: "/resident/payments" });
+            }
+          } catch {
+            toast.error(
+              "Payment received but we couldn't verify it. Please contact support with your payment ID.",
+            );
+          }
+          setRazorpayBusy(false);
+        },
+        prefill: {
+          name: data.unit.owner_name || "",
+          contact: "",
+        },
+        theme: {
+          color: "#1E3A5F",
+        },
+        modal: {
+          ondismiss: () => {
+            setRazorpayBusy(false);
+            toast.info("Payment cancelled");
+          },
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.on("payment.failed", () => {
+        toast.error("Payment failed. Please try again.");
+        setRazorpayBusy(false);
+      });
+      rzp.open();
+    } catch {
+      toast.error("Failed to initiate payment");
+      setRazorpayBusy(false);
+    }
+  }
 
   async function copyUpiId() {
     if (!data?.ownerUpiId) return;
@@ -318,6 +464,52 @@ function SubmitPayment() {
             </div>
           </div>
         </Card>
+      )}
+
+      {razorpayConfigured && cycle && (
+        <Card className="p-6">
+          <div className="flex items-start gap-4">
+            <div className="rounded-lg bg-primary/10 p-3">
+              <CreditCard className="h-6 w-6 text-primary" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold">Pay online with Razorpay</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Pay via UPI, cards, netbanking, or wallets. Payment is automatically recorded and
+                sent for verification.
+              </p>
+              <Button
+                type="button"
+                disabled={razorpayBusy || !razorpayLoaded || totalPaid <= 0}
+                className="mt-3 bg-green-600 hover:bg-green-700"
+                onClick={handleRazorpayPayment}
+              >
+                {razorpayBusy ? (
+                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                ) : (
+                  <CreditCard className="mr-1.5 h-4 w-4" />
+                )}
+                Pay {inr(totalPaid)} via Razorpay
+              </Button>
+              {totalPaid <= 0 && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Enter payment amounts below to enable online payment.
+                </p>
+              )}
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {razorpayConfigured && cycle && (
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-background px-2 text-muted-foreground">or pay manually</span>
+          </div>
+        </div>
       )}
 
       <Card className="p-6">

@@ -29,7 +29,9 @@ function PaymentEntry() {
     queryFn: async () => {
       let query = db
         .from("units")
-        .select("id, unit_no, type, owner_name, billing_enabled, waiver_end_date, maintenance_fee, garbage_fee, occupancy_type, monthly_rent")
+        .select(
+          "id, unit_no, type, owner_name, billing_enabled, waiver_end_date, maintenance_fee, garbage_fee, occupancy_type, monthly_rent",
+        )
         .order("floor")
         .order("unit_no");
       if (role === "owner" && user?.id) {
@@ -56,7 +58,7 @@ function PaymentEntry() {
   const totalDue = unit
     ? (Number(unit.maintenance_fee) || (RATES[unit.type as keyof typeof RATES]?.maintenance ?? 0)) +
       (Number(unit.garbage_fee) || (RATES[unit.type as keyof typeof RATES]?.garbage ?? 0)) +
-      (unit.occupancy_type === "rented" ? (Number(unit.monthly_rent) || 0) : 0)
+      (unit.occupancy_type === "rented" ? Number(unit.monthly_rent) || 0 : 0)
     : 0;
   const totalPaid = Number(maint) + Number(garbage);
   const balance = Math.max(totalDue - totalPaid, 0);
@@ -82,9 +84,11 @@ function PaymentEntry() {
     if (existing) {
       cycleId = existing.id;
     } else {
-      const mFee = Number(unit.maintenance_fee) || (RATES[unit.type as keyof typeof RATES]?.maintenance ?? 0);
-      const gFee = Number(unit.garbage_fee) || (RATES[unit.type as keyof typeof RATES]?.garbage ?? 0);
-      const rFee = unit.occupancy_type === "rented" ? (Number(unit.monthly_rent) || 0) : 0;
+      const mFee =
+        Number(unit.maintenance_fee) || (RATES[unit.type as keyof typeof RATES]?.maintenance ?? 0);
+      const gFee =
+        Number(unit.garbage_fee) || (RATES[unit.type as keyof typeof RATES]?.garbage ?? 0);
+      const rFee = unit.occupancy_type === "rented" ? Number(unit.monthly_rent) || 0 : 0;
       const { data: created, error } = await db
         .from("billing_cycles")
         .insert({

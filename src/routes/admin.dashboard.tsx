@@ -17,12 +17,7 @@ import {
   Cell,
   Legend,
 } from "recharts";
-import {
-  Building2,
-  BadgeCheck,
-  CalendarClock,
-  Users,
-} from "lucide-react";
+import { Building2, BadgeCheck, CalendarClock, Users } from "lucide-react";
 
 export const Route = createFileRoute("/admin/dashboard")({
   component: Dashboard,
@@ -96,7 +91,9 @@ function Dashboard() {
         .select("total_paid, balance, status, unit_id, billing_cycles(month, year)");
       let recentQuery = db
         .from("payments")
-        .select("id, total_paid, payment_date, payment_mode, unit_id, billing_cycles(month, year), units(unit_no, owner_name)")
+        .select(
+          "id, total_paid, payment_date, payment_mode, unit_id, billing_cycles(month, year), units(unit_no, owner_name)",
+        )
         .eq("status", "PAID")
         .order("created_at", { ascending: false })
         .limit(10);
@@ -277,7 +274,9 @@ function Dashboard() {
                   <tr key={p.id} className="border-t">
                     <td className="py-3 font-medium">{p.units?.unit_no ?? "—"}</td>
                     <td className="py-3">{p.units?.owner_name ?? "—"}</td>
-                    <td className="py-3">{p.billing_cycles?.month ?? "—"} {p.billing_cycles?.year ?? ""}</td>
+                    <td className="py-3">
+                      {p.billing_cycles?.month ?? "—"} {p.billing_cycles?.year ?? ""}
+                    </td>
                     <td className="py-3">{formatDate(p.payment_date)}</td>
                     <td className="py-3 text-right font-semibold">{inr(p.total_paid)}</td>
                   </tr>

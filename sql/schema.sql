@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     email TEXT,
     phone TEXT UNIQUE,
     unit_id UUID REFERENCES public.units(id) ON DELETE SET NULL,
+    upi_id VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

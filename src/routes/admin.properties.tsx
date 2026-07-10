@@ -250,7 +250,7 @@ function PropertiesPage() {
         <Card className="p-12 text-center text-sm text-muted-foreground">
           {isMaster
             ? "No properties found."
-            : "No properties yet. Click \"+ Apartments\" to register one."}
+            : 'No properties yet. Click "+ Apartments" to register one.'}
         </Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -266,9 +266,7 @@ function PropertiesPage() {
                     {p.unit_no} · Floor {p.floor}
                   </div>
                 </div>
-                <StatusBadge
-                  status={!p.owner_name ? "Vacant" : "Occupied"}
-                />
+                <StatusBadge status={!p.owner_name ? "Vacant" : "Occupied"} />
               </div>
 
               <div className="space-y-2 px-4 py-3 text-sm">
@@ -276,21 +274,25 @@ function PropertiesPage() {
                   <span className="text-muted-foreground">Type</span>
                   <span className="font-medium">{p.type}</span>
                 </div>
-                {p.status !== "vacant" && p.status !== "unsold" && p.occupancy_type === "rented" && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Rent Amount</span>
-                    <span className="inline-flex items-center gap-1 font-semibold">
-                      <IndianRupee className="h-3.5 w-3.5 text-muted-foreground" />
-                      {p.monthly_rent.toLocaleString("en-IN")}
-                    </span>
-                  </div>
-                )}
-                {p.status !== "vacant" && p.status !== "unsold" && p.occupancy_type === "owner_occupied" && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Owner Occupied</span>
-                    <span className="font-semibold text-green-600">Yes</span>
-                  </div>
-                )}
+                {p.status !== "vacant" &&
+                  p.status !== "unsold" &&
+                  p.occupancy_type === "rented" && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Rent Amount</span>
+                      <span className="inline-flex items-center gap-1 font-semibold">
+                        <IndianRupee className="h-3.5 w-3.5 text-muted-foreground" />
+                        {p.monthly_rent.toLocaleString("en-IN")}
+                      </span>
+                    </div>
+                  )}
+                {p.status !== "vacant" &&
+                  p.status !== "unsold" &&
+                  p.occupancy_type === "owner_occupied" && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Owner Occupied</span>
+                      <span className="font-semibold text-green-600">Yes</span>
+                    </div>
+                  )}
                 {p.area_sqft && (
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Area</span>
@@ -332,7 +334,9 @@ function PropertiesPage() {
                     variant="ghost"
                     size="sm"
                     className="flex-1 rounded-none text-destructive hover:text-destructive"
-                    onClick={() => setDeleteConfirm({ unitId: p.id, unitNo: p.unit_no, ownerName: p.owner_name })}
+                    onClick={() =>
+                      setDeleteConfirm({ unitId: p.id, unitNo: p.unit_no, ownerName: p.owner_name })
+                    }
                   >
                     <Trash2 className="mr-1 h-3.5 w-3.5" /> Delete
                   </Button>
@@ -359,8 +363,7 @@ function PropertiesPage() {
             <Button
               variant="destructive"
               onClick={() =>
-                deleteConfirm &&
-                handleDelete(deleteConfirm.unitId, deleteConfirm.ownerName)
+                deleteConfirm && handleDelete(deleteConfirm.unitId, deleteConfirm.ownerName)
               }
             >
               Delete
@@ -396,7 +399,10 @@ function PropertyDialog({
   const { data: existingNames = [] } = useQuery({
     queryKey: ["apartment-names"],
     queryFn: async () => {
-      const { data, error } = await db.from("units").select("property_name").not("property_name", "is", null);
+      const { data, error } = await db
+        .from("units")
+        .select("property_name")
+        .not("property_name", "is", null);
       if (error) throw error;
       const names = (data as { property_name: string }[])
         .map((r) => r.property_name?.trim())
@@ -407,7 +413,9 @@ function PropertyDialog({
 
   async function save() {
     if (editing?.owner_name && form.status !== "sold") {
-      toast.error("Cannot change status — tenant is assigned to this property. Remove the tenant first.");
+      toast.error(
+        "Cannot change status — tenant is assigned to this property. Remove the tenant first.",
+      );
       return;
     }
     setBusy(true);

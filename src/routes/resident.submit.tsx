@@ -16,7 +16,8 @@ import {
 } from "@/components/ui/select";
 import { MONTHS, inr } from "@/lib/format";
 import { toast } from "sonner";
-import { Upload, IndianRupee } from "lucide-react";
+import { Upload, IndianRupee, Copy, Check } from "lucide-react";
+import QRCode from "qrcode";
 
 export const Route = createFileRoute("/resident/submit")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -43,6 +44,8 @@ function SubmitPayment() {
   const [proofBase64, setProofBase64] = useState<string | null>(null);
   const [proofName, setProofName] = useState<string>("");
   const [busy, setBusy] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const { data, isLoading } = useQuery({
@@ -58,9 +61,27 @@ function SubmitPayment() {
 
       const { data: unit } = await db
         .from("units")
-        .select("id, unit_no, type, maintenance_fee, garbage_fee, occupancy_type, monthly_rent")
+        .select(
+          "id, unit_no, type, maintenance_fee, garbage_fee, occupancy_type, monthly_rent, owner_name, owner_user_id",
+        )
         .eq("id", profile.unit_id)
         .single();
+
+      let ownerUpiId: string | null = null;
+      let ownerName: string | null = null;
+      if (unit?.owner_user_id) {
+        const { data: ownerProfile } = await db
+          .from("profiles")
+          .select("upi_id, full_name")
+          .eq("id", unit.owner_user_id)
+          .maybeSingle();
+        ownerUpiId =
+          (ownerProfile as { upi_id: string | null; full_name: string | null } | null)?.upi_id ??
+          null;
+        ownerName =
+          (ownerProfile as { upi_id: string | null; full_name: string | null } | null)?.full_name ??
+          null;
+      }
 
       const { data: cycle } = await db
         .from("billing_cycles")
@@ -77,7 +98,7 @@ function SubmitPayment() {
         .eq("billing_cycle_id", cycle?.id)
         .maybeSingle();
 
-      return { hasUnit: true, unit, cycle, existing };
+      return { hasUnit: true, unit, cycle, existing, ownerUpiId, ownerName };
     },
   });
 
@@ -96,6 +117,32 @@ function SubmitPayment() {
       if (Number(cycle.rent_due) > 0) setRentPaid(Number(cycle.rent_due));
     }
   }, [cycle]);
+
+  const upiLink =
+    data?.ownerUpiId && totalPaid > 0
+      ? `upi://pay?pa=${encodeURIComponent(data.ownerUpiId)}&pn=${encodeURIComponent(data.ownerName ?? "")}&am=${totalPaid}&cu=INR&tn=${encodeURIComponent(`Maintenance ${month} ${year} - ${data.unit?.unit_no}`)}`
+      : null;
+
+  useEffect(() => {
+    if (mode === "UPI" && upiLink) {
+      QRCode.toDataURL(upiLink, { width: 200, margin: 2 }, (err, url) => {
+        if (!err) setQrDataUrl(url);
+      });
+    } else {
+      setQrDataUrl(null);
+    }
+  }, [mode, upiLink]);
+
+  async function copyUpiId() {
+    if (!data?.ownerUpiId) return;
+    try {
+      await navigator.clipboard.writeText(data.ownerUpiId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Failed to copy");
+    }
+  }
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -139,7 +186,8 @@ function SubmitPayment() {
     } else {
       const mFeeCalc = Number(data.unit.maintenance_fee) || 0;
       const gFeeCalc = Number(data.unit.garbage_fee) || 0;
-      const rFeeCalc = data.unit.occupancy_type === "rented" ? (Number(data.unit.monthly_rent) || 0) : 0;
+      const rFeeCalc =
+        data.unit.occupancy_type === "rented" ? Number(data.unit.monthly_rent) || 0 : 0;
       const { data: created, error } = await db
         .from("billing_cycles")
         .insert({
@@ -218,9 +266,15 @@ function SubmitPayment() {
         </div>
         <Card className="p-8 text-center text-sm text-muted-foreground">
           <IndianRupee className="mx-auto h-8 w-8 text-status-paid" />
-          <p className="mt-3 font-medium text-foreground">Already paid for {month} {year}</p>
+          <p className="mt-3 font-medium text-foreground">
+            Already paid for {month} {year}
+          </p>
           <p className="mt-1">This month's bill has been settled.</p>
-          <Button variant="outline" className="mt-4" onClick={() => nav({ to: "/resident/payments" })}>
+          <Button
+            variant="outline"
+            className="mt-4"
+            onClick={() => nav({ to: "/resident/payments" })}
+          >
             View payment history
           </Button>
         </Card>
@@ -341,6 +395,70 @@ function SubmitPayment() {
                 </SelectContent>
               </Select>
             </div>
+
+            {mode === "UPI" && data?.ownerUpiId && (
+              <div className="md:col-span-2 rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-4">
+                <div className="text-sm font-medium">Pay via UPI</div>
+
+                {totalPaid > 0 && qrDataUrl && (
+                  <div className="flex justify-center">
+                    <img
+                      src={qrDataUrl}
+                      alt="UPI QR code"
+                      className="h-44 w-44 rounded-lg border bg-white"
+                    />
+                  </div>
+                )}
+
+                <div className="space-y-1.5">
+                  <div className="text-xs text-muted-foreground">Pay to</div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono font-semibold text-foreground">
+                      {data.ownerUpiId}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={copyUpiId}
+                      title="Copy UPI ID"
+                    >
+                      {copied ? (
+                        <Check className="h-3.5 w-3.5 text-green-600" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                  </div>
+                  {data.ownerName && (
+                    <div className="text-xs text-muted-foreground">{data.ownerName}</div>
+                  )}
+                </div>
+
+                {totalPaid > 0 && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <a href={upiLink!} target="_blank" rel="noopener noreferrer">
+                      <Button
+                        type="button"
+                        variant="default"
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        Pay ₹{totalPaid} via UPI
+                      </Button>
+                    </a>
+                    <p className="text-xs text-muted-foreground">
+                      Opens on your phone (GPay / PhonePe / Paytm)
+                    </p>
+                  </div>
+                )}
+
+                <p className="text-xs text-muted-foreground">
+                  After paying via UPI, upload a screenshot below as proof and submit for
+                  verification.
+                </p>
+              </div>
+            )}
 
             <div className="space-y-2 md:col-span-2">
               <Label>Reference number (optional)</Label>

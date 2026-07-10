@@ -7,11 +7,7 @@ import { Brand } from "@/components/Brand";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/format";
 import { Home, Receipt, Upload, MessageSquare, User, LogOut, Bell, ShieldX } from "lucide-react";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 export const Route = createFileRoute("/resident")({
@@ -84,7 +80,11 @@ function ResidentLayout() {
             </div>
           </div>
           <div className="flex items-center gap-1">
-            <Popover onOpenChange={(open) => { if (open) markNotificationsRead(); }}>
+            <Popover
+              onOpenChange={(open) => {
+                if (open) markNotificationsRead();
+              }}
+            >
               <PopoverTrigger asChild>
                 <button
                   aria-label="Notifications"

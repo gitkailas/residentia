@@ -51,29 +51,106 @@ function Ledger() {
   const { data: pendingCount = 0 } = useQuery({
     queryKey: ["pending-verification-count"],
     queryFn: async () => {
-      const { data } = await db
-        .from("payments")
-        .select("id")
-        .eq("status", "PENDING VERIFICATION");
+      const { data } = await db.from("payments").select("id").eq("status", "PENDING VERIFICATION");
       return (data ?? []).length;
     },
     refetchInterval: 30_000,
   });
 
-  const { data: rows = [], isLoading } = useQuery({
+  const { data: ledgerData, isLoading } = useQuery({
     queryKey: ["ledger"],
     queryFn: async () => {
-      const { data } = await db
-        .from("payments")
-        .select(
-          "id, unit_id, total_paid, balance, status, payment_date, payment_mode, reference_no, proof_url, billing_cycles(month, year, total_due), units(unit_no, owner_name, type)",
-        )
-        .not("billing_cycle_id", "is", null)
-        .order("created_at", { ascending: false })
-        .limit(500);
-      return data ?? [];
+      const [cyclesRes, paymentsRes, unitsRes] = await Promise.all([
+        db
+          .from("billing_cycles")
+          .select("id, unit_id, month, year, total_due, is_waiver_period, created_at")
+          .order("created_at", { ascending: false }),
+        db
+          .from("payments")
+          .select(
+            "id, unit_id, billing_cycle_id, total_paid, balance, status, payment_date, payment_mode, reference_no, proof_url, rejection_reason, created_at",
+          )
+          .order("created_at", { ascending: false }),
+        db.from("units").select("id, unit_no, owner_name, type"),
+      ]);
+      return {
+        cycles: cyclesRes.data ?? [],
+        payments: paymentsRes.data ?? [],
+        units: unitsRes.data ?? [],
+      };
     },
   });
+
+  const rows = useMemo(() => {
+    if (!ledgerData) return [];
+    const { cycles, payments, units } = ledgerData;
+    const unitsMap = new Map(units.map((u: any) => [u.id, u]));
+    const paymentsByCycle = new Map<string, any[]>();
+    for (const p of payments) {
+      if (!p.billing_cycle_id) continue;
+      const existing = paymentsByCycle.get(p.billing_cycle_id) ?? [];
+      existing.push(p);
+      paymentsByCycle.set(p.billing_cycle_id, existing);
+    }
+    return cycles
+      .map((c: any) => {
+        const unit = unitsMap.get(c.unit_id);
+        const cyclePayments = paymentsByCycle.get(c.id) ?? [];
+        if (cyclePayments.length === 0) {
+          return {
+            cycle_id: c.id,
+            payment_id: null,
+            unit_id: c.unit_id,
+            month: c.month,
+            year: c.year,
+            total_due: c.total_due,
+            is_waiver_period: c.is_waiver_period,
+            unit_no: unit?.unit_no ?? "",
+            owner_name: unit?.owner_name ?? null,
+            type: unit?.type ?? "",
+            total_paid: 0,
+            balance: c.total_due,
+            status: c.is_waiver_period ? "WAIVER PERIOD" : "UNPAID",
+            payment_date: null,
+            payment_mode: null,
+            reference_no: null,
+            proof_url: null,
+            rejection_reason: null,
+          };
+        }
+        const totalPaid = cyclePayments.reduce(
+          (sum: number, p: any) => sum + Number(p.total_paid || 0),
+          0,
+        );
+        const latest = cyclePayments.sort(
+          (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+        )[0];
+        return {
+          cycle_id: c.id,
+          payment_id: latest.id,
+          unit_id: c.unit_id,
+          month: c.month,
+          year: c.year,
+          total_due: c.total_due,
+          is_waiver_period: c.is_waiver_period,
+          unit_no: unit?.unit_no ?? "",
+          owner_name: unit?.owner_name ?? null,
+          type: unit?.type ?? "",
+          total_paid: totalPaid,
+          balance: Math.max(Number(c.total_due) - totalPaid, 0),
+          status: latest.status,
+          payment_date: latest.payment_date,
+          payment_mode: latest.payment_mode,
+          reference_no: latest.reference_no,
+          proof_url: latest.proof_url,
+          rejection_reason: latest.rejection_reason,
+        };
+      })
+      .sort((a: any, b: any) => {
+        if (a.year !== b.year) return b.year - a.year;
+        return MONTHS.indexOf(b.month) - MONTHS.indexOf(a.month);
+      });
+  }, [ledgerData]);
 
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
@@ -82,35 +159,38 @@ function Ledger() {
   const filtered = useMemo(() => {
     return rows.filter((r: any) => {
       if (status !== "all" && r.status !== status) return false;
-      if (month !== "all" && r.billing_cycles?.month !== month) return false;
+      if (month !== "all" && r.month !== month) return false;
       if (search) {
         const s = search.toLowerCase();
         const ok =
-          (r.units?.unit_no ?? "").toLowerCase().includes(s) ||
-          (r.units?.owner_name ?? "").toLowerCase().includes(s);
+          (r.unit_no ?? "").toLowerCase().includes(s) ||
+          (r.owner_name ?? "").toLowerCase().includes(s);
         if (!ok) return false;
       }
       return true;
     });
   }, [rows, search, status, month]);
 
-  async function approve(payment: any) {
-    const { error } = await db.from("payments").update({
-      status: "PAID",
-      balance: 0,
-      approved_by: user?.email ?? null,
-      approved_at: new Date().toISOString(),
-    }).eq("id", payment.id);
+  async function approve(r: any) {
+    const { error } = await db
+      .from("payments")
+      .update({
+        status: "PAID",
+        balance: 0,
+        approved_by: user?.email ?? null,
+        approved_at: new Date().toISOString(),
+      })
+      .eq("id", r.payment_id);
     if (error) {
       toast.error(error.message);
       return;
     }
-    toast.success(`Payment approved — ${payment.units?.unit_no}`);
+    toast.success(`Payment approved — ${r.unit_no}`);
     qc.invalidateQueries({ queryKey: ["ledger"] });
     qc.invalidateQueries({ queryKey: ["pending-verification-count"] });
   }
 
-  async function reject(payment: any, reason: string) {
+  async function reject(r: any, reason: string) {
     if (!reason.trim()) {
       toast.error("Enter a reason for rejection");
       return;
@@ -118,12 +198,15 @@ function Ledger() {
     setRejecting(null);
     setRejectReason("");
 
-    const { error } = await db.from("payments").update({
-      status: "REJECTED",
-      approved_by: null,
-      approved_at: null,
-      rejection_reason: reason,
-    }).eq("id", payment.id);
+    const { error } = await db
+      .from("payments")
+      .update({
+        status: "REJECTED",
+        approved_by: null,
+        approved_at: null,
+        rejection_reason: reason,
+      })
+      .eq("id", r.payment_id);
     if (error) {
       toast.error(error.message);
       return;
@@ -132,22 +215,20 @@ function Ledger() {
     const { data: tenant } = await db
       .from("profiles")
       .select("id")
-      .eq("unit_id", payment.unit_id)
+      .eq("unit_id", r.unit_id)
       .maybeSingle();
 
     if (tenant) {
-      const month = payment.billing_cycles?.month ?? "";
-      const year = payment.billing_cycles?.year ?? "";
       await db.from("notifications").insert({
         user_id: tenant.id,
         title: "Payment Rejected",
-        message: `Your payment for ${month} ${year} (${payment.units?.unit_no}) was rejected. Reason: ${reason}`,
-        payment_id: payment.id,
+        message: `Your payment for ${r.month} ${r.year} (${r.unit_no}) was rejected. Reason: ${reason}`,
+        payment_id: r.payment_id,
         type: "payment_rejected",
       });
     }
 
-    toast.success(`Payment rejected — ${payment.units?.unit_no}`);
+    toast.success(`Payment rejected — ${r.unit_no}`);
     qc.invalidateQueries({ queryKey: ["ledger"] });
     qc.invalidateQueries({ queryKey: ["pending-verification-count"] });
   }
@@ -170,11 +251,11 @@ function Ledger() {
     filtered.forEach((r: any) => {
       lines.push(
         [
-          r.units?.unit_no ?? "",
-          (r.units?.owner_name ?? "").replace(/,/g, " "),
-          r.billing_cycles?.month ?? "",
-          r.billing_cycles?.year ?? "",
-          r.billing_cycles?.total_due ?? "",
+          r.unit_no ?? "",
+          (r.owner_name ?? "").replace(/,/g, " "),
+          r.month ?? "",
+          r.year ?? "",
+          r.total_due ?? "",
           r.total_paid,
           r.balance,
           r.status,
@@ -241,11 +322,13 @@ function Ledger() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All statuses</SelectItem>
-              {["PAID", "UNPAID", "PARTIAL", "WAIVER PERIOD", "ADVANCE PAID", "REJECTED"].map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
-              ))}
+              {["PAID", "UNPAID", "PARTIAL", "WAIVER PERIOD", "ADVANCE PAID", "REJECTED"].map(
+                (s) => (
+                  <SelectItem key={s} value={s}>
+                    {s}
+                  </SelectItem>
+                ),
+              )}
             </SelectContent>
           </Select>
         </div>
@@ -275,23 +358,25 @@ function Ledger() {
               </thead>
               <tbody>
                 {filtered.map((r: any) => (
-                  <tr key={r.id} className={`border-t ${STATUS_ROW[r.status] ?? ""}`}>
-                    <td className="px-4 py-3 font-semibold">{r.units?.unit_no}</td>
-                    <td className="px-4 py-3">{r.units?.owner_name ?? "—"}</td>
+                  <tr key={r.cycle_id} className={`border-t ${STATUS_ROW[r.status] ?? ""}`}>
+                    <td className="px-4 py-3 font-semibold">{r.unit_no}</td>
+                    <td className="px-4 py-3">{r.owner_name ?? "—"}</td>
                     <td className="px-4 py-3">
-                      {r.billing_cycles?.month} {r.billing_cycles?.year}
+                      {r.month} {r.year}
                     </td>
-                    <td className="px-4 py-3 text-right">{inr(r.billing_cycles?.total_due)}</td>
+                    <td className="px-4 py-3 text-right">{inr(r.total_due)}</td>
                     <td className="px-4 py-3 text-right font-medium">{inr(r.total_paid)}</td>
                     <td className="px-4 py-3 text-right">{inr(r.balance)}</td>
                     <td className="px-4 py-3">
                       <StatusBadge status={r.status} />
                     </td>
-                    <td className="px-4 py-3">{formatDate(r.payment_date)}</td>
+                    <td className="px-4 py-3">
+                      {r.payment_date ? formatDate(r.payment_date) : "—"}
+                    </td>
                     <td className="px-4 py-3">{r.payment_mode ?? "—"}</td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        {r.status === "PENDING VERIFICATION" && (
+                        {r.payment_id && r.status === "PENDING VERIFICATION" && (
                           <>
                             <Button
                               variant="ghost"
@@ -306,7 +391,10 @@ function Ledger() {
                               variant="ghost"
                               size="sm"
                               className="text-status-unpaid hover:text-status-unpaid"
-                              onClick={() => { setRejecting(r); setRejectReason(""); }}
+                              onClick={() => {
+                                setRejecting(r);
+                                setRejectReason("");
+                              }}
                               title="Reject"
                             >
                               <ShieldX className="h-4 w-4" />
@@ -323,31 +411,33 @@ function Ledger() {
                             <Eye className="h-4 w-4" />
                           </Button>
                         )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            generateReceiptPDF({
-                              receiptNo: r.id.slice(0, 8).toUpperCase(),
-                              unitNo: r.units?.unit_no ?? "",
-                              ownerName: r.units?.owner_name ?? null,
-                              type: r.units?.type ?? "",
-                              month: r.billing_cycles?.month ?? "—",
-                              year: r.billing_cycles?.year ?? "",
-                              amountMaintenance: 0,
-                              amountGarbage: 0,
-                              amountRent: 0,
-                              totalPaid: Number(r.total_paid),
-                              balance: Number(r.balance),
-                              paymentDate: r.payment_date,
-                              paymentMode: r.payment_mode,
-                              referenceNo: r.reference_no,
-                              status: r.status,
-                            })
-                          }
-                        >
-                          <FileText className="h-4 w-4" />
-                        </Button>
+                        {r.payment_id && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              generateReceiptPDF({
+                                receiptNo: (r.payment_id ?? r.cycle_id).slice(0, 8).toUpperCase(),
+                                unitNo: r.unit_no,
+                                ownerName: r.owner_name,
+                                type: r.type,
+                                month: r.month,
+                                year: r.year,
+                                amountMaintenance: 0,
+                                amountGarbage: 0,
+                                amountRent: 0,
+                                totalPaid: Number(r.total_paid),
+                                balance: Number(r.balance),
+                                paymentDate: r.payment_date,
+                                paymentMode: r.payment_mode,
+                                referenceNo: r.reference_no,
+                                status: r.status,
+                              })
+                            }
+                          >
+                            <FileText className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -378,12 +468,17 @@ function Ledger() {
         </div>
       )}
 
-      <Dialog open={!!rejecting} onOpenChange={(o) => { if (!o) setRejecting(null); }}>
+      <Dialog
+        open={!!rejecting}
+        onOpenChange={(o) => {
+          if (!o) setRejecting(null);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Reject Payment</DialogTitle>
             <DialogDescription>
-              {rejecting && `${rejecting.units?.unit_no} — ${rejecting.billing_cycles?.month} ${rejecting.billing_cycles?.year}`}
+              {rejecting && `${rejecting.unit_no} — ${rejecting.month} ${rejecting.year}`}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -397,7 +492,9 @@ function Ledger() {
               />
             </div>
             <div className="flex justify-end gap-3">
-              <Button variant="outline" onClick={() => setRejecting(null)}>Cancel</Button>
+              <Button variant="outline" onClick={() => setRejecting(null)}>
+                Cancel
+              </Button>
               <Button
                 variant="destructive"
                 onClick={() => reject(rejecting, rejectReason)}

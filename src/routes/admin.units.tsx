@@ -280,11 +280,7 @@ function UnitsPage() {
                     <td className="px-4 py-3">{formatDate(u.key_handover_date)}</td>
                     <td className="px-4 py-3">{formatDate(u.waiver_end_date)}</td>
                     <td className="px-4 py-3">
-                      <StatusBadge
-                        status={
-                          !u.owner_name ? "Vacant" : "Active"
-                        }
-                      />
+                      <StatusBadge status={!u.owner_name ? "Vacant" : "Active"} />
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
                       <Button
@@ -404,7 +400,9 @@ function UnitDialog({
     const unitId = (newUnits as Unit[])?.[0]?.id;
     if (unitId && form.owner_phone) {
       if (!/^\d{10}$/.test(form.owner_phone.trim())) {
-        toast.error("Mobile number must be exactly 10 digits. Unit was created but tenant was not assigned.");
+        toast.error(
+          "Mobile number must be exactly 10 digits. Unit was created but tenant was not assigned.",
+        );
         onClose();
         return;
       }
@@ -572,7 +570,7 @@ function AssignTenantDialog({
     if (selectedUnit && !editing) {
       const rates = RATES[selectedUnit.type as keyof typeof RATES];
       if (rates) {
-        setForm(f => ({
+        setForm((f) => ({
           ...f,
           maintenance_fee: rates.maintenance.toString(),
           garbage_fee: rates.garbage.toString(),
@@ -582,7 +580,8 @@ function AssignTenantDialog({
   }, [selectedUnitId]);
   const [busy, setBusy] = useState(false);
 
-  const selectedUnit = editing?.id === selectedUnitId ? editing : vacantUnits.find((u) => u.id === selectedUnitId);
+  const selectedUnit =
+    editing?.id === selectedUnitId ? editing : vacantUnits.find((u) => u.id === selectedUnitId);
 
   async function save() {
     if (!selectedUnitId) {
@@ -629,7 +628,10 @@ function AssignTenantDialog({
         if (error) throw error;
         toast.success("Tenant updated");
       } else {
-        const { error: unitError } = await db.from("units").update(unitPayload).eq("id", selectedUnitId);
+        const { error: unitError } = await db
+          .from("units")
+          .update(unitPayload)
+          .eq("id", selectedUnitId);
         if (unitError) throw unitError;
 
         await apiFetch("/api/auth/create-tenant", {
@@ -663,7 +665,10 @@ function AssignTenantDialog({
         <div className="space-y-2">
           <Label>{editing ? "Property" : "Select vacant property"}</Label>
           {editing ? (
-            <Input value={`${editing.unit_no}${editing.property_name ? ` — ${editing.property_name}` : ""} (${editing.type}, Floor ${editing.floor})`} disabled />
+            <Input
+              value={`${editing.unit_no}${editing.property_name ? ` — ${editing.property_name}` : ""} (${editing.type}, Floor ${editing.floor})`}
+              disabled
+            />
           ) : (
             <Select value={selectedUnitId} onValueChange={setSelectedUnitId}>
               <SelectTrigger>
@@ -706,7 +711,10 @@ function AssignTenantDialog({
           </div>
           <div className="space-y-2">
             <Label>Occupancy Type</Label>
-            <Select value={form.occupancy_type} onValueChange={(v) => setForm({ ...form, occupancy_type: v })}>
+            <Select
+              value={form.occupancy_type}
+              onValueChange={(v) => setForm({ ...form, occupancy_type: v })}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select occupancy type" />
               </SelectTrigger>
@@ -747,7 +755,6 @@ function AssignTenantDialog({
               onChange={(e) => setForm({ ...form, owner_phone: e.target.value })}
               placeholder="e.g. 9876543210"
             />
-
           </div>
         </div>
 

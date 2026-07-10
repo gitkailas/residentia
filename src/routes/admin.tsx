@@ -4,6 +4,13 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { Brand } from "@/components/Brand";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { db } from "@/integrations/db/client";
 import {
@@ -19,6 +26,7 @@ import {
   Megaphone,
   MessageCircle,
   Users,
+  User,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin")({
@@ -51,10 +59,7 @@ function AdminLayout() {
   const { data: pendingCount = 0 } = useQuery({
     queryKey: ["pending-verification-count"],
     queryFn: async () => {
-      const { data } = await db
-        .from("payments")
-        .select("id")
-        .eq("status", "PENDING VERIFICATION");
+      const { data } = await db.from("payments").select("id").eq("status", "PENDING VERIFICATION");
       return (data ?? []).length;
     },
     refetchInterval: 30_000,
@@ -133,15 +138,9 @@ function AdminLayout() {
         </nav>
 
         <div className="absolute inset-x-0 bottom-0 border-t border-sidebar-border p-3">
-          <button
-            onClick={async () => {
-              await signOut();
-              nav({ to: "/login" });
-            }}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm hover:bg-sidebar-accent"
-          >
+          <div className="flex items-center gap-3 px-3 py-2 text-sm text-sidebar-foreground/60">
             <LogOut className="h-4 w-4" /> Sign out
-          </button>
+          </div>
         </div>
       </aside>
 
@@ -152,7 +151,30 @@ function AdminLayout() {
             <Menu className="h-6 w-6" />
           </button>
           <div className="hidden md:block" />
-          <div className="text-xs text-muted-foreground">{session.user.email}</div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted transition-colors">
+                <User className="h-3.5 w-3.5" />
+                {session.user.email}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => nav({ to: "/admin/profile" })}>
+                <User className="mr-2 h-4 w-4" />
+                Profile
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={async () => {
+                  await signOut();
+                  nav({ to: "/login" });
+                }}
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </header>
         <main className="flex-1 p-4 md:p-8">
           <Outlet />

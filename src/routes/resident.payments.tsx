@@ -59,15 +59,15 @@ function PaymentsPage() {
   }
 
   const paidCycleIds = new Set(data.payments.map((p: any) => p.billing_cycle_id));
-  const unpaidCycles = data.cycles.filter((c: any) => !paidCycleIds.has(c.id) && !c.is_waiver_period);
+  const unpaidCycles = data.cycles.filter(
+    (c: any) => !paidCycleIds.has(c.id) && !c.is_waiver_period,
+  );
 
   return (
     <div className="space-y-5">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Payment History</h1>
-        <p className="text-sm text-muted-foreground">
-          All payment records for your unit.
-        </p>
+        <p className="text-sm text-muted-foreground">All payment records for your unit.</p>
       </div>
 
       {data.payments.length === 0 && unpaidCycles.length === 0 ? (
@@ -85,12 +85,10 @@ function PaymentsPage() {
                   </div>
                   <div className="mt-1 space-y-0.5 text-sm text-muted-foreground">
                     <div>
-                      Paid:{" "}
-                      <span className="font-medium text-foreground">{inr(p.total_paid)}</span>
+                      Paid: <span className="font-medium text-foreground">{inr(p.total_paid)}</span>
                     </div>
                     <div>
-                      Balance:{" "}
-                      <span className="font-medium text-foreground">{inr(p.balance)}</span>
+                      Balance: <span className="font-medium text-foreground">{inr(p.balance)}</span>
                     </div>
                     {p.payment_mode && (
                       <div>
@@ -119,8 +117,7 @@ function PaymentsPage() {
                   </div>
                   <div className="mt-1 space-y-0.5 text-sm text-muted-foreground">
                     <div>
-                      Due:{" "}
-                      <span className="font-medium text-foreground">{inr(c.total_due)}</span>
+                      Due: <span className="font-medium text-foreground">{inr(c.total_due)}</span>
                     </div>
                   </div>
                 </div>

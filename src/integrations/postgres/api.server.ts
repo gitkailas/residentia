@@ -393,7 +393,9 @@ async function handleDeleteUser(request: Request) {
     if (unitResult.rows[0].count > 0) {
       await client.query("ROLLBACK");
       return new Response(
-        JSON.stringify({ error: { message: "Owner account contains data. Delete all properties first." } }),
+        JSON.stringify({
+          error: { message: "Owner account contains data. Delete all properties first." },
+        }),
         { status: 409, headers: { "content-type": "application/json" } },
       );
     }

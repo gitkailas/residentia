@@ -45,12 +45,15 @@ function VerifyPayments() {
   });
 
   async function approve(payment: any) {
-    const { error } = await db.from("payments").update({
-      status: "PAID",
-      balance: 0,
-      approved_by: user?.email ?? null,
-      approved_at: new Date().toISOString(),
-    }).eq("id", payment.id);
+    const { error } = await db
+      .from("payments")
+      .update({
+        status: "PAID",
+        balance: 0,
+        approved_by: user?.email ?? null,
+        approved_at: new Date().toISOString(),
+      })
+      .eq("id", payment.id);
     if (error) {
       toast.error(error.message);
       return;
@@ -67,12 +70,15 @@ function VerifyPayments() {
     setRejecting(null);
     setRejectReason("");
 
-    const { error } = await db.from("payments").update({
-      status: "REJECTED",
-      approved_by: null,
-      approved_at: null,
-      rejection_reason: reason,
-    }).eq("id", payment.id);
+    const { error } = await db
+      .from("payments")
+      .update({
+        status: "REJECTED",
+        approved_by: null,
+        approved_at: null,
+        rejection_reason: reason,
+      })
+      .eq("id", payment.id);
     if (error) {
       toast.error(error.message);
       return;
@@ -138,9 +144,7 @@ function VerifyPayments() {
                     </div>
                     <div>
                       <span className="text-xs text-muted-foreground">Total due</span>
-                      <div className="font-medium">
-                        {inr(p.billing_cycles?.total_due ?? 0)}
-                      </div>
+                      <div className="font-medium">{inr(p.billing_cycles?.total_due ?? 0)}</div>
                     </div>
                     <div>
                       <span className="text-xs text-muted-foreground">Amount paid</span>
@@ -186,7 +190,10 @@ function VerifyPayments() {
                     size="sm"
                     variant="outline"
                     className="border-status-unpaid text-status-unpaid hover:bg-status-unpaid/10"
-                    onClick={() => { setRejecting(p); setRejectReason(""); }}
+                    onClick={() => {
+                      setRejecting(p);
+                      setRejectReason("");
+                    }}
                   >
                     <ShieldX className="mr-1 h-4 w-4" />
                     Reject
@@ -219,12 +226,18 @@ function VerifyPayments() {
         </div>
       )}
 
-      <Dialog open={!!rejecting} onOpenChange={(o) => { if (!o) setRejecting(null); }}>
+      <Dialog
+        open={!!rejecting}
+        onOpenChange={(o) => {
+          if (!o) setRejecting(null);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Reject Payment</DialogTitle>
             <DialogDescription>
-              {rejecting && `${rejecting.units?.unit_no} — ${rejecting.billing_cycles?.month} ${rejecting.billing_cycles?.year}`}
+              {rejecting &&
+                `${rejecting.units?.unit_no} — ${rejecting.billing_cycles?.month} ${rejecting.billing_cycles?.year}`}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -238,7 +251,9 @@ function VerifyPayments() {
               />
             </div>
             <div className="flex justify-end gap-3">
-              <Button variant="outline" onClick={() => setRejecting(null)}>Cancel</Button>
+              <Button variant="outline" onClick={() => setRejecting(null)}>
+                Cancel
+              </Button>
               <Button
                 variant="destructive"
                 onClick={() => reject(rejecting, rejectReason)}

@@ -24,6 +24,7 @@ import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminUnitsRouteImport } from './routes/admin.units'
 import { Route as AdminQueriesRouteImport } from './routes/admin.queries'
 import { Route as AdminPropertiesRouteImport } from './routes/admin.properties'
+import { Route as AdminProfileRouteImport } from './routes/admin.profile'
 import { Route as AdminPaymentsRouteImport } from './routes/admin.payments'
 import { Route as AdminLedgerRouteImport } from './routes/admin.ledger'
 import { Route as AdminDefaultersRouteImport } from './routes/admin.defaulters'
@@ -106,6 +107,11 @@ const AdminPropertiesRoute = AdminPropertiesRouteImport.update({
   path: '/properties',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminProfileRoute = AdminProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminPaymentsRoute = AdminPaymentsRouteImport.update({
   id: '/payments',
   path: '/payments',
@@ -148,6 +154,7 @@ export interface FileRoutesByFullPath {
   '/admin/defaulters': typeof AdminDefaultersRoute
   '/admin/ledger': typeof AdminLedgerRoute
   '/admin/payments': typeof AdminPaymentsRoute
+  '/admin/profile': typeof AdminProfileRoute
   '/admin/properties': typeof AdminPropertiesRoute
   '/admin/queries': typeof AdminQueriesRoute
   '/admin/units': typeof AdminUnitsRoute
@@ -171,6 +178,7 @@ export interface FileRoutesByTo {
   '/admin/defaulters': typeof AdminDefaultersRoute
   '/admin/ledger': typeof AdminLedgerRoute
   '/admin/payments': typeof AdminPaymentsRoute
+  '/admin/profile': typeof AdminProfileRoute
   '/admin/properties': typeof AdminPropertiesRoute
   '/admin/queries': typeof AdminQueriesRoute
   '/admin/units': typeof AdminUnitsRoute
@@ -195,6 +203,7 @@ export interface FileRoutesById {
   '/admin/defaulters': typeof AdminDefaultersRoute
   '/admin/ledger': typeof AdminLedgerRoute
   '/admin/payments': typeof AdminPaymentsRoute
+  '/admin/profile': typeof AdminProfileRoute
   '/admin/properties': typeof AdminPropertiesRoute
   '/admin/queries': typeof AdminQueriesRoute
   '/admin/units': typeof AdminUnitsRoute
@@ -220,6 +229,7 @@ export interface FileRouteTypes {
     | '/admin/defaulters'
     | '/admin/ledger'
     | '/admin/payments'
+    | '/admin/profile'
     | '/admin/properties'
     | '/admin/queries'
     | '/admin/units'
@@ -243,6 +253,7 @@ export interface FileRouteTypes {
     | '/admin/defaulters'
     | '/admin/ledger'
     | '/admin/payments'
+    | '/admin/profile'
     | '/admin/properties'
     | '/admin/queries'
     | '/admin/units'
@@ -266,6 +277,7 @@ export interface FileRouteTypes {
     | '/admin/defaulters'
     | '/admin/ledger'
     | '/admin/payments'
+    | '/admin/profile'
     | '/admin/properties'
     | '/admin/queries'
     | '/admin/units'
@@ -393,6 +405,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminPropertiesRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/profile': {
+      id: '/admin/profile'
+      path: '/profile'
+      fullPath: '/admin/profile'
+      preLoaderRoute: typeof AdminProfileRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/payments': {
       id: '/admin/payments'
       path: '/payments'
@@ -445,6 +464,7 @@ interface AdminRouteChildren {
   AdminDefaultersRoute: typeof AdminDefaultersRoute
   AdminLedgerRoute: typeof AdminLedgerRoute
   AdminPaymentsRoute: typeof AdminPaymentsRoute
+  AdminProfileRoute: typeof AdminProfileRoute
   AdminPropertiesRoute: typeof AdminPropertiesRoute
   AdminQueriesRoute: typeof AdminQueriesRoute
   AdminUnitsRoute: typeof AdminUnitsRoute
@@ -460,6 +480,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminDefaultersRoute: AdminDefaultersRoute,
   AdminLedgerRoute: AdminLedgerRoute,
   AdminPaymentsRoute: AdminPaymentsRoute,
+  AdminProfileRoute: AdminProfileRoute,
   AdminPropertiesRoute: AdminPropertiesRoute,
   AdminQueriesRoute: AdminQueriesRoute,
   AdminUnitsRoute: AdminUnitsRoute,

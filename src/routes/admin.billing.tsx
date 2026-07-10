@@ -7,7 +7,13 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { MONTHS, RATES, inr } from "@/lib/format";
 import { Loader2, IndianRupee, CalendarDays, Building2, Users } from "lucide-react";
 import { toast } from "sonner";
@@ -43,9 +49,13 @@ function BillingGenerator() {
       let query = db
         .from("billing_cycles")
         .select("unit_id, total_due, is_waiver_period")
-        .eq("month", month).eq("year", year);
+        .eq("month", month)
+        .eq("year", year);
       if (isOwner && user?.id) {
-        const { data: ownerUnits } = await db.from("units").select("id").eq("owner_user_id", user.id);
+        const { data: ownerUnits } = await db
+          .from("units")
+          .select("id")
+          .eq("owner_user_id", user.id);
         const ids = (ownerUnits ?? []).map((u: any) => u.id);
         if (ids.length === 0) return [];
         query = query.in("unit_id", ids);
@@ -82,10 +92,16 @@ function BillingGenerator() {
     return `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(safeDay).padStart(2, "0")}`;
   }
 
-  function totalForUnit(u: any): { maintenance: number; garbage: number; rent: number; total: number } {
-    const maintenance = Number(u.maintenance_fee) || (RATES[u.type as keyof typeof RATES]?.maintenance ?? 0);
+  function totalForUnit(u: any): {
+    maintenance: number;
+    garbage: number;
+    rent: number;
+    total: number;
+  } {
+    const maintenance =
+      Number(u.maintenance_fee) || (RATES[u.type as keyof typeof RATES]?.maintenance ?? 0);
     const garbage = Number(u.garbage_fee) || (RATES[u.type as keyof typeof RATES]?.garbage ?? 0);
-    const rent = u.occupancy_type === "rented" ? (Number(u.monthly_rent) || 0) : 0;
+    const rent = u.occupancy_type === "rented" ? Number(u.monthly_rent) || 0 : 0;
     return { maintenance, garbage, rent, total: maintenance + garbage + rent };
   }
 
@@ -143,7 +159,8 @@ function BillingGenerator() {
     const fees = totalForUnit(u);
     const { error } = await db.from("billing_cycles").insert({
       unit_id: u.id,
-      month, year,
+      month,
+      year,
       maintenance_due: Number(fees.maintenance) || 0,
       garbage_due: Number(fees.garbage) || 0,
       rent_due: Number(fees.rent) || 0,
@@ -151,8 +168,11 @@ function BillingGenerator() {
       is_waiver_period: !u.billing_enabled,
     });
     setGeneratingId(null);
-    if (error) { toast.error(error.message); return; }
-    setGeneratedIds(prev => new Set(prev).add(u.id));
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setGeneratedIds((prev) => new Set(prev).add(u.id));
     toast.success(`Bill generated for ${u.unit_no}`);
   }
 
@@ -161,7 +181,8 @@ function BillingGenerator() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Monthly Billing Generator</h1>
         <p className="text-sm text-muted-foreground">
-          Create billing cycles for occupied units. Due date matches each unit's key handover day of month. Rent is included for rented units.
+          Create billing cycles for occupied units. Due date matches each unit's key handover day of
+          month. Rent is included for rented units.
         </p>
       </div>
 
@@ -170,36 +191,81 @@ function BillingGenerator() {
           <div className="space-y-2">
             <Label>Month</Label>
             <Select value={month} onValueChange={setMonth}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
-                {availableMonthsFor(year).map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                {availableMonthsFor(year).map((m) => (
+                  <SelectItem key={m} value={m}>
+                    {m}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
             <Label>Year</Label>
-            <Input type="number" min={2020} max={currentYear} value={year} onChange={(e) => setYear(Math.min(Number(e.target.value), currentYear))} />
+            <Input
+              type="number"
+              min={2020}
+              max={currentYear}
+              value={year}
+              onChange={(e) => setYear(Math.min(Number(e.target.value), currentYear))}
+            />
           </div>
         </div>
 
         {/* Stats cards */}
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <Stat icon={Building2} label="Occupied" value={summary.occupied} hint={`${summary.ownerOccupied} owner · ${summary.rented} rented`} />
-          <Stat icon={Users} label="Billable" value={summary.billable} hint={`${summary.inWaiver} in waiver`} />
-          <Stat icon={CalendarDays} label="Due dates" value={summary.dueMin && summary.dueMax ? `${summary.dueMin}th – ${summary.dueMax}th` : "—"} hint="based on key handover" />
-          <Stat icon={Loader2} label="Already generated" value={summary.generated} hint={`${month} ${year}`} />
+          <Stat
+            icon={Building2}
+            label="Occupied"
+            value={summary.occupied}
+            hint={`${summary.ownerOccupied} owner · ${summary.rented} rented`}
+          />
+          <Stat
+            icon={Users}
+            label="Billable"
+            value={summary.billable}
+            hint={`${summary.inWaiver} in waiver`}
+          />
+          <Stat
+            icon={CalendarDays}
+            label="Due dates"
+            value={
+              summary.dueMin && summary.dueMax ? `${summary.dueMin}th – ${summary.dueMax}th` : "—"
+            }
+            hint="based on key handover"
+          />
+          <Stat
+            icon={Loader2}
+            label="Already generated"
+            value={summary.generated}
+            hint={`${month} ${year}`}
+          />
         </div>
 
         {/* Expected collection breakdown */}
         <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 text-sm space-y-1.5">
           <div className="flex items-center gap-2 font-semibold text-foreground">
             <IndianRupee className="h-4 w-4" />
-            Expected collection <span className="font-normal text-muted-foreground">(for {summary.eligible} units not yet generated)</span>
+            Expected collection{" "}
+            <span className="font-normal text-muted-foreground">
+              (for {summary.eligible} units not yet generated)
+            </span>
           </div>
           <div className="flex flex-wrap gap-x-6 gap-y-1">
-            <span>Maintenance: <strong>{inr(summary.feeBreakdown.maintenance)}</strong></span>
-            <span>Garbage: <strong>{inr(summary.feeBreakdown.garbage)}</strong></span>
-            {summary.feeBreakdown.rent > 0 && <span>Rent: <strong>{inr(summary.feeBreakdown.rent)}</strong></span>}
+            <span>
+              Maintenance: <strong>{inr(summary.feeBreakdown.maintenance)}</strong>
+            </span>
+            <span>
+              Garbage: <strong>{inr(summary.feeBreakdown.garbage)}</strong>
+            </span>
+            {summary.feeBreakdown.rent > 0 && (
+              <span>
+                Rent: <strong>{inr(summary.feeBreakdown.rent)}</strong>
+              </span>
+            )}
             <span className="text-primary font-bold">Total: {inr(summary.feeBreakdown.total)}</span>
           </div>
         </div>
@@ -228,11 +294,19 @@ function BillingGenerator() {
                     const fees = totalForUnit(u);
                     const khDate = u.key_handover_date ? new Date(u.key_handover_date) : null;
                     const isDue = khDate
-                      ? (khDate.getFullYear() < year ||
-                         (khDate.getFullYear() === year && khDate.getMonth() <= monthIndex))
+                      ? khDate.getFullYear() < year ||
+                        (khDate.getFullYear() === year && khDate.getMonth() <= monthIndex)
                       : false;
                     const isGen = u.hasCycle || generatedIds.has(u.id);
-                    return { ...u, fees, day: u.key_handover_date ? `${new Date(u.key_handover_date).getDate()}th` : "—", isDue, isGen };
+                    return {
+                      ...u,
+                      fees,
+                      day: u.key_handover_date
+                        ? `${new Date(u.key_handover_date).getDate()}th`
+                        : "—",
+                      isDue,
+                      isGen,
+                    };
                   })
                   .sort((a: any, b: any) => (a.isGen === b.isGen ? 0 : a.isGen ? 1 : -1))
                   .map((u: any) => (
@@ -241,23 +315,40 @@ function BillingGenerator() {
                       <td className="px-3 py-2">{u.owner_name ?? "—"}</td>
                       <td className="px-3 py-2 text-muted-foreground">{u.type}</td>
                       <td className="px-3 py-2">
-                        <span className={u.occupancy_type === "rented" ? "text-amber-600" : "text-green-600"}>
+                        <span
+                          className={
+                            u.occupancy_type === "rented" ? "text-amber-600" : "text-green-600"
+                          }
+                        >
                           {u.occupancy_type === "rented" ? "Rented" : "Owner"}
                         </span>
                       </td>
                       <td className="px-3 py-2 text-right">{inr(u.fees.maintenance)}</td>
                       <td className="px-3 py-2 text-right">{inr(u.fees.garbage)}</td>
-                      <td className="px-3 py-2 text-right">{u.fees.rent > 0 ? inr(u.fees.rent) : "—"}</td>
+                      <td className="px-3 py-2 text-right">
+                        {u.fees.rent > 0 ? inr(u.fees.rent) : "—"}
+                      </td>
                       <td className="px-3 py-2 text-right font-semibold">{inr(u.fees.total)}</td>
                       <td className="px-3 py-2 text-right text-muted-foreground">{u.day}</td>
                       <td className="px-3 py-2 text-center">
                         {u.isGen ? (
                           <span className="text-xs text-green-600 font-medium">Generated</span>
                         ) : !u.isDue ? (
-                          <Button size="sm" disabled className="text-xs h-7 px-2">Generate</Button>
+                          <Button size="sm" disabled className="text-xs h-7 px-2">
+                            Generate
+                          </Button>
                         ) : (
-                          <Button size="sm" onClick={() => generateForUnit(u)} disabled={generatingId === u.id} className="text-xs h-7 px-2">
-                            {generatingId === u.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Generate"}
+                          <Button
+                            size="sm"
+                            onClick={() => generateForUnit(u)}
+                            disabled={generatingId === u.id}
+                            className="text-xs h-7 px-2"
+                          >
+                            {generatingId === u.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              "Generate"
+                            )}
                           </Button>
                         )}
                       </td>
@@ -267,13 +358,22 @@ function BillingGenerator() {
             </table>
           </div>
         )}
-
       </Card>
     </div>
   );
 }
 
-function Stat({ icon: Icon, label, value, hint }: { icon?: React.ComponentType<{ className?: string }>; label: string; value: number | string; hint?: string }) {
+function Stat({
+  icon: Icon,
+  label,
+  value,
+  hint,
+}: {
+  icon?: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: number | string;
+  hint?: string;
+}) {
   return (
     <div>
       <div className="flex items-center gap-1.5 text-xs uppercase text-muted-foreground">

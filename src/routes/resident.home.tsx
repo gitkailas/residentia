@@ -58,7 +58,16 @@ function ResidentHome() {
         .order("created_at", { ascending: false })
         .limit(3);
 
-      return { profile, unit, cycle, otherCycles, payments, announcements: announcements ?? [], month, year };
+      return {
+        profile,
+        unit,
+        cycle,
+        otherCycles,
+        payments,
+        announcements: announcements ?? [],
+        month,
+        year,
+      };
     },
   });
 
@@ -78,9 +87,10 @@ function ResidentHome() {
   }
 
   const inWaiver = unit.status === "sold" && !unit.billing_enabled;
-  const mFee = Number(unit.maintenance_fee) || (RATES[unit.type as keyof typeof RATES]?.maintenance ?? 0);
+  const mFee =
+    Number(unit.maintenance_fee) || (RATES[unit.type as keyof typeof RATES]?.maintenance ?? 0);
   const gFee = Number(unit.garbage_fee) || (RATES[unit.type as keyof typeof RATES]?.garbage ?? 0);
-  const rFee = unit.occupancy_type === "rented" ? (Number(unit.monthly_rent) || 0) : 0;
+  const rFee = unit.occupancy_type === "rented" ? Number(unit.monthly_rent) || 0 : 0;
   const monthCycle = cycle ?? {
     maintenance_due: mFee,
     garbage_due: gFee,
@@ -212,7 +222,11 @@ function ResidentHome() {
               </div>
             </div>
             {ocStatus !== "PAID" && (
-              <Link to="/resident/submit" search={{ month: oc.month, year: oc.year }} className="mt-4 block">
+              <Link
+                to="/resident/submit"
+                search={{ month: oc.month, year: oc.year }}
+                className="mt-4 block"
+              >
                 <Button className="w-full gap-2">
                   Pay Now <ArrowRight className="h-4 w-4" />
                 </Button>

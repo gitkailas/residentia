@@ -143,7 +143,12 @@ function UsersPage() {
                       <Button variant="ghost" size="sm" onClick={() => setEditTarget(o)}>
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
-                      <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => setDeleteTarget(o)}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => setDeleteTarget(o)}
+                      >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </td>
@@ -169,8 +174,7 @@ function UsersPage() {
             <DialogTitle>Delete Owner</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Are you sure you want to delete owner{" "}
-            <strong>{deleteTarget?.email}</strong>?
+            Are you sure you want to delete owner <strong>{deleteTarget?.email}</strong>?
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteTarget(null)}>
@@ -199,13 +203,7 @@ function UsersPage() {
   );
 }
 
-function EditOwnerDialog({
-  owner,
-  onClose,
-}: {
-  owner: OwnerRow | null;
-  onClose: () => void;
-}) {
+function EditOwnerDialog({ owner, onClose }: { owner: OwnerRow | null; onClose: () => void }) {
   const [name, setName] = useState(owner?.full_name ?? "");
   const [email, setEmail] = useState(owner?.email ?? "");
   const [busy, setBusy] = useState(false);
@@ -219,7 +217,11 @@ function EditOwnerDialog({
     if (!owner) return;
     setBusy(true);
     try {
-      await apiFetch("/api/auth/update-user", { user_id: owner.id, email: email.trim() || null, name: name.trim() || null });
+      await apiFetch("/api/auth/update-user", {
+        user_id: owner.id,
+        email: email.trim() || null,
+        name: name.trim() || null,
+      });
       toast.success("Owner updated");
       onClose();
     } catch (err: any) {
@@ -230,7 +232,12 @@ function EditOwnerDialog({
   }
 
   return (
-    <Dialog open={!!owner} onOpenChange={(v) => { if (!v) onClose(); }}>
+    <Dialog
+      open={!!owner}
+      onOpenChange={(v) => {
+        if (!v) onClose();
+      }}
+    >
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Edit Owner</DialogTitle>
@@ -239,7 +246,11 @@ function EditOwnerDialog({
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>Email</Label>
-            <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="owner@example.com" />
+            <Input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="owner@example.com"
+            />
           </div>
           <div className="space-y-2">
             <Label>Name</Label>

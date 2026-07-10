@@ -124,10 +124,14 @@ function SubmitPayment() {
   const razorpayConfigured = razorpayConfig?.configured === true;
 
   const cycle = data?.cycle;
-  const mFee = cycle ? Number(cycle.maintenance_due) : 0;
-  const gFee = cycle ? Number(cycle.garbage_due) : 0;
-  const rFee = cycle ? Number(cycle.rent_due) : 0;
-  const totalDue = cycle ? Number(cycle.total_due) : 0;
+  const unit = data?.unit;
+  const fallbackMaintenance = unit ? Number(unit.maintenance_fee) || 0 : 0;
+  const fallbackGarbage = unit ? Number(unit.garbage_fee) || 0 : 0;
+  const fallbackRent = unit?.occupancy_type === "rented" ? Number(unit.monthly_rent) || 0 : 0;
+  const mFee = cycle ? Number(cycle.maintenance_due) : fallbackMaintenance;
+  const gFee = cycle ? Number(cycle.garbage_due) : fallbackGarbage;
+  const rFee = cycle ? Number(cycle.rent_due) : fallbackRent;
+  const totalDue = cycle ? Number(cycle.total_due) : mFee + gFee + rFee;
   const totalPaid = Number(maintenancePaid) + Number(garbagePaid) + Number(rentPaid);
   const balance = Math.max(totalDue - totalPaid, 0);
 
@@ -136,8 +140,12 @@ function SubmitPayment() {
       setMaintenancePaid(Number(cycle.maintenance_due));
       setGarbagePaid(Number(cycle.garbage_due));
       if (Number(cycle.rent_due) > 0) setRentPaid(Number(cycle.rent_due));
+    } else if (unit) {
+      setMaintenancePaid(fallbackMaintenance);
+      setGarbagePaid(fallbackGarbage);
+      if (fallbackRent > 0) setRentPaid(fallbackRent);
     }
-  }, [cycle]);
+  }, [cycle, unit, fallbackMaintenance, fallbackGarbage, fallbackRent]);
 
   const upiLink =
     data?.ownerUpiId && totalPaid > 0
@@ -168,8 +176,8 @@ function SubmitPayment() {
   }, [razorpayConfigured]);
 
   async function handleRazorpayPayment() {
-    if (!data?.unit || !cycle) {
-      toast.error("No billing cycle found");
+    if (!data?.unit) {
+      toast.error("No unit linked");
       return;
     }
     if (totalPaid <= 0) {
@@ -179,6 +187,31 @@ function SubmitPayment() {
     setRazorpayBusy(true);
 
     try {
+      // Ensure billing cycle exists
+      let cycleId = cycle?.id;
+      if (!cycleId) {
+        const { data: created, error: cycleError } = await db
+          .from("billing_cycles")
+          .insert({
+            unit_id: data.unit.id,
+            month,
+            year,
+            maintenance_due: mFee,
+            garbage_due: gFee,
+            rent_due: rFee,
+            total_due: totalDue,
+            is_waiver_period: false,
+          })
+          .select("id")
+          .single();
+        if (cycleError) {
+          toast.error(cycleError.message);
+          setRazorpayBusy(false);
+          return;
+        }
+        cycleId = created.id;
+      }
+
       // 1. Create order on server
       const orderRes = await fetch("/api/payments/create-order", {
         method: "POST",
@@ -188,7 +221,7 @@ function SubmitPayment() {
         },
         body: JSON.stringify({
           unit_id: data.unit.id,
-          billing_cycle_id: cycle.id,
+          billing_cycle_id: cycleId,
           amount: totalPaid,
           month,
           year,
@@ -232,7 +265,7 @@ function SubmitPayment() {
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_signature: response.razorpay_signature,
                 unit_id: data.unit!.id,
-                billing_cycle_id: cycle!.id,
+                billing_cycle_id: cycleId,
                 maintenance: maintenancePaid,
                 garbage: garbagePaid,
                 rent: rentPaid,
@@ -445,11 +478,11 @@ function SubmitPayment() {
         </p>
       </div>
 
-      {cycle && (
+      {(cycle || data?.unit) && (
         <Card className="border-primary/30 bg-primary/5 p-4">
           <div className="text-xs uppercase tracking-wider text-muted-foreground">Bill for</div>
           <div className="mt-1 text-lg font-bold">
-            {cycle.month} {cycle.year}
+            {cycle ? `${cycle.month} ${cycle.year}` : `${month} ${year}`}
           </div>
           <div className="mt-2 grid grid-cols-3 gap-3 text-sm">
             <div>
@@ -474,7 +507,7 @@ function SubmitPayment() {
         </Card>
       )}
 
-      {razorpayConfigured && cycle && (
+      {razorpayConfigured && (cycle || data?.unit) && (
         <Card className="p-6">
           <div className="flex items-start gap-4">
             <div className="rounded-lg bg-primary/10 p-3">
@@ -509,7 +542,7 @@ function SubmitPayment() {
         </Card>
       )}
 
-      {razorpayConfigured && cycle && (
+      {razorpayConfigured && (cycle || data?.unit) && (
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t" />

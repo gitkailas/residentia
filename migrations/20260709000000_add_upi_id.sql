@@ -1,0 +1,2 @@
+ALTER TABLE public.units
+  ADD COLUMN IF NOT EXISTS upi_id VARCHAR(255);
